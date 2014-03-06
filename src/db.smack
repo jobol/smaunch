@@ -1,0 +1,818 @@
+OSP_account.read
+OSP_account.write
+OSP_alarm
+OSP_antivirus
+	org.tizen.message rwx
+	org.tizen.email rwx
+	org.tizen.browser rwx
+	org.tizen.setting rwx
+OSP_application.kill
+OSP_application.launch
+OSP_appmanager.kill
+OSP_appmanager.launch
+OSP_appmanager
+OSP_appsetting
+OSP_app
+OSP_appusage
+OSP_appwidgetprovider.install
+OSP_audiomanager.route
+OSP_audiomanager.session
+OSP_audiomanager.voipsession
+OSP_audiorecorder
+OSP_base.collection
+OSP_base.runtime
+OSP_base
+OSP_bluetooth.admin
+	bt-service::admin w
+	bt-service::gap w
+	bt-service::opp w
+	bt-service::manager w
+OSP_bluetooth.gap
+	bt-service::gap w
+OSP_bluetooth.health
+OSP_bluetoothmanager
+OSP_bluetooth.opp
+	bt-service::opp w
+OSP_bluetooth.spp
+	bt-service::spp w
+OSP_bookmark.read
+	org.tizen.browser::db_external rw
+OSP_bookmark.write
+	org.tizen.browser::db_external rw
+OSP_calendar.read
+	calendar-service::read r
+	calendar-service::svc rw
+OSP_calendar.write
+	calendar-service::read r
+	calendar-service::write w
+	calendar-service::svc rw
+OSP_callforward
+OSP_camera
+OSP_cellbroadcast
+	msg-service::cellbroadcast rw
+	msg-service::write rw
+OSP_certificate.read
+OSP_certificate.write
+OSP_chatonv
+OSP_contact.read
+	contacts-service::read r
+	contacts-service::svc rw
+OSP_contact.write
+	contacts-service::read r
+	contacts-service::write w
+	contacts-service::svc rw
+OSP_content.read
+	drmfw w
+OSP_content
+OSP_content.write
+OSP_context.contextitem
+OSP_contextmanager.place
+OSP_contextmanager.privacy
+OSP_contextmanager.upload
+OSP_context.place
+OSP_customnetaccount
+OSP_dns
+OSP_download
+OSP_drmservice
+OSP_enriched.text
+OSP_felica
+	felica-client rx
+	felica-mfc w
+	
+OSP_geolocationpermission.read
+OSP_geolocationpermission.write
+OSP_graphics
+OSP_http
+OSP_imemanager
+OSP_ime
+OSP_inputmanager
+OSP_io
+	osp-channel-service w
+OSP_locales
+OSP_location
+OSP_lockmanager
+OSP_mdm
+OSP_media.audio.equalizer
+OSP_media.audio
+OSP_media.camera
+OSP_media.codec
+OSP_media.image
+OSP_media.openal
+OSP_media.player
+	org.tizen.browser rwx
+OSP_media.tone.player
+	org.tizen.browser rwx
+OSP_messaging.email
+OSP_messaging.mms
+OSP_messaging
+OSP_messaging.sms
+	msg-service::smstrigger rw
+	msg-service::read rw
+	contacts-service::read r
+	contacts-service::write w
+	contacts-service::phonelog-read r
+	contacts-service::phonelog-write w
+OSP_mobilecare
+OSP_net.bluetooth
+OSP_net.http
+OSP_net.nfc
+OSP_net
+OSP_net.socket
+OSP_netstatisticsmanager
+OSP_net.wifi.direct
+OSP_net.wifi
+OSP_network.account
+OSP_network.connection
+OSP_networkmanager
+OSP_network.statistics
+OSP_nfc.admin
+	nfc-manager::admin w
+OSP_nfc.common
+	nfc-manager::common w
+OSP_nfcmanager
+OSP_nfc.p2p
+OSP_nfc.tag
+OSP_notificationmanager
+OSP_notification
+OSP_packageinfo
+	org.tizen.add-viewer rx
+	org.tizen.app-tray rx
+	org.tizen.audio-tuning rx
+	org.tizen.browser rwx
+	org.tizen.calendar rx
+	org.tizen.ciss rx
+	org.tizen.cluster-home rx
+	org.tizen.data-provider-slave rx
+	org.tizen.desk-dock rx
+	org.tizen.download-manager rx
+	org.tizen.easy-home rx
+	org.tizen.email rwx
+	org.tizen.episode rx
+	org.tizen.fileshare-service rx
+	org.tizen.gallery-service rx
+	org.tizen.group-cast rx
+	org.tizen.image-editor rx
+	org.tizen.message rwx
+	org.tizen.miniapp-tray rx
+	org.tizen.music-player rx
+	org.tizen.myfile rx
+	org.tizen.quickpanel rx
+	org.tizen.rcs-apps rx
+	org.tizen.ready-to-share rx
+	org.tizen.smartsearch rx
+	org.tizen.smemo rx
+	org.tizen.taskmgr rx
+	org.tizen.video-player rx
+	org.tizen.voicerecorder rx
+	org.tizen.youtube rx
+	nfc-app rx
+OSP_packagelicensemanager
+OSP_packagemanager.install
+OSP_packagesetting
+OSP_platforminfo
+OSP_power
+OSP_privacymanager.read
+OSP_privacymanager.write
+OSP_privilegemanager.read
+OSP_push
+OSP_security
+OSP_setting
+	org.tizen.setting rwx
+OSP_shortcut.install
+OSP
+	activesync-ui::eas-appsvc rwxa-
+	ail::db rwxa-
+	alarm-server rwxa-
+	allshare rwxa-
+	allshare::svc rwxa-
+	allshare-dms rwxa-
+	allshare-dms::config rwxa-
+	allshare-dms::svc rwxa-
+	always rwxa-
+	app2sd rwxa-
+	app-svc rwxa-
+	app-svc::db rwxa-
+	aul rwxa-
+	aul::db rwxa-
+	badge rwxa-
+	badge::db rwxa-
+	bluetooth-tools rwxa-
+	browser-provider rwxa-
+	bt_agent::bt_hfp_agent rwxa-
+	bt_agent::bt_map_agent rwxa-
+	bt_agent::bt_pb_agent rwxa-
+	bt_firmware rwxa-
+	bt_share rwxa-
+	bt_share::db rwxa-
+	bt-service rwxa-
+	calendar-service rwx
+	cbhm rwxa-
+	cloud-content-sync rwxa-
+	cloud-content-sync::db rwxa-
+	cloud-content-sync-server rwxa-
+	cloud-pdm rwxa-
+	cloud-pdm::db rwxa-
+	cloud-pdm-server rwxa-
+	data-provider-master rw
+	data-provider-master::data rx
+	data-provider-master::db rw
+	data-provider-master::share rwxat
+	connman rwxa-
+	contacts-service rwx
+	context-service rwxa-
+	crash-popup rwxa-
+	crash-viewer rwxa-
+	crash-worker rwxa-
+	crash-worker::all_log_dump rwxa-
+	csc-feature rwxa-
+	csc-manager rwxa-
+	cups rwxa-
+	dali rwxa-
+	dbus rwxa-
+	display_wd rwxa-
+	dlogutil rwxa-
+	dlogutil::dlogscript rwxa-
+	download-provider rwxa-
+	drmfw::db rwxa-
+	dropbox rwxa-
+	e17 rwxa-
+	e17-data rwxa-
+	eas-engine rwxa-
+	efreet rwxa-
+	email-service rwx
+	factory-reset rwxa-
+	immvibed rwxa-
+	ims-service rwxa-
+	ims-service::db rwxa-
+	isf rwxa-
+	kies-via-wifi::db rwxa-
+	libaccounts-svc::db rw
+	libmm-media-call rwxa-
+	libslp-alarm rwxa-
+	libslp-alarm::db rwxa-
+	libslp-memo rwxa-
+	libsocial-service rwxa-
+	libsocial-service::db rwxa-
+	live-dictionary rwxa-
+	live-setting-app rwxa-
+	location_fw rwxa-
+	location_fw::brcm rwxa-
+	location_fw::db rwxa-
+	location_fw::server rwxa-
+	mdm-server rwxa-
+	mdm-server::db rwxa-
+	media-data::db rwxa-
+	media-server rwxa-
+	miracast-server rwxa-
+	mmicheck::mmi_check rwxa-
+	mobex-agent rwxa-
+	mobex-agent::cfg rwxa-
+	mobex-agent::db rwxa-
+	mobicore-daemon rwxa-
+	mobileprint rwxa-
+	msg-service rwx
+	msg-service::db rw
+	mtp-responder rwxa-
+	net.wifi-qs rwxa-
+	net-config rwxa-
+	nfc-manager w
+	nfc-share-service rwxa-
+	notification rwxa-
+	notification::db rwxa-
+	obexd rwxa-
+	obexd::client rwxa-
+	oma-dm-agent rwxa-
+	oma-dm-agent::db rwxa-
+	oma-ds-agent rwxa-
+	oma-ds-agent::cfg rwxa-
+	oma-ds-agent::db rwxa-
+	org.tizen.sat-ui rwxa-
+	osp::compat rwxa-
+	osp::root-certs rwxa-
+	osp::user-certs rwxa-
+	57r43275q7 rw
+	osp-connectivity-service rw
+	osp-installer rwxa-
+	osp-livebox-service rwxa-
+	osp-search-service rwxa-
+	osp-security-service rwxa-
+	phone-misc rwxa-
+	pims-ipc rwxa-
+	pkgmgr rwxa-
+	pkgmgr-client rwxa-
+	pkgmgr-info rwxa-
+	pkgmgr-installer rwxa-
+	pkgmgr-parser rwxa-
+	pkgmgr-server rwxa-
+	power_manager rwxa-
+	pulseaudio rwxat
+	push-service rwxa-
+	push-service::db rwxa-
+	resman rwxa-
+	rua rwxa-
+	rua::db rwxa-
+	samsung.system-panel rwxa-
+	samsung-account-front rwxa-
+	secure-storage rwxa-
+	sensor-framework rwxa-
+	shortcut-service::db rwxa-
+	smartcard-service rwxa-
+	sound_server rwxat
+	sqlfs rwxa-
+	starter rwxa-
+	stest-service::stest_service rwxa-
+	stt-server rwxa-
+	svi-data rx
+	sys-assert rwxa-
+	sys-assert::core rwxat
+	sys-assert::core-launcher rwxa-
+	sys-assert::info rwxa-
+	syspopup rwxa-
+	syspopup::db rwxa-
+	device::app_logging rwxa-
+	device::audio rwxa-
+	device::camera rwxa-
+	system::homedir rwxat
+	device::hwcodec rwxa-
+	system::media rwxat
+	device::recording rwxa-
+	device::sys_logging rwxa-
+	device::bklight rwxa-
+	system::use_internet rw
+	system::vconf rwxat
+	device::video rwxa-
+	system::share rwxat
+	system-server rwxa-
+	telepathy rwxa-
+	thumb-server rwxa-
+	tts-engine-samsung::vdata rwxa-
+	tts-server rwxa-
+	ug_bluetooth rwxa-
+	ug-camera-efl rwxa-
+	ug-image-viewer-efl rwxa-
+	ug-launcher rwxa-
+	ug-setting-call-efl rwxa-
+	ui-gadget::client rwxa-
+	usbotg-syspopup rwxa-
+	usb-printer-detector rwxa-
+	usb-server rwxa-
+	usb-server::usb-r rwxa-
+	usb-server::usb-rx rwxa-
+	usb-syspopup rwxa-
+	vcs-server rwxa-
+	video-hub rwxa-
+	vt-stack rwxa-
+	webkit2-efl rwxa-
+	webkit2-extension rwxa-
+	wifi_direct_manager rwxa-
+	worldclock::db rwxa-
+	wpasupplicant rwxa-
+	wrt-security::db_ace rwxa-
+	xorg rwxa-
+	youtube rwxa-
+	zeromq rwxa-
+	pkgmgr::db rwxa-
+	location_fw::client rwxa-
+	wrt-security-daemon::db rw---
+	syslogd rwx--
+	nas9xepmna rwxa-
+	wrt-security-daemon rwxa-
+	org.tizen.dropbox rwxa-
+	osp::datacontrol rwxat
+	livebox.web-provider rwx--
+	email-service::db rw
+	resman::db rwxa-
+	ug-email-docsearch-efl rwxat
+	deviced rwxa-
+	wrt-popup-wrt-runtime rwxa-
+	privacy-manager::db rw
+	privacy-manager::daemon w
+	osp::privilege-description-db rw
+	system::clipboard rwxat
+	wrt_launchpad_daemon rwxa
+	aospd00043 rwx
+	q7097a278m rwx
+	cp7ipabg4k rwx
+	sjjevolsjk rwx
+	gi2qxenosh rwx
+	system::vconf_setting arwx
+	system::vconf_inhouse arwx
+	system::vconf_privacy arwx
+	system::vconf_system arwx
+	system::vconf_multimedia arwx
+	system::vconf_network arwx
+	system::vconf_misc arwx
+	osp::share arwxt
+	sdbd::home rx
+	sdbd rwx
+	* t
+	org.tizen.indicator rwx
+	browser::db_external rw
+	default-fonts-fc-sdk::config r
+	_ arwx
+	app-package::db rw
+	system::share arwxt
+	security-server::api-data-share rwxa-
+	org.tizen.quickpanel arwxt
+	system::ext_storage arwxt
+	browser::db_external rw
+OSP_smstrigger
+	msg-service::smstrigger rw
+OSP_social.addressbook
+OSP_social.calendarbook
+OSP_social
+OSP_socket
+OSP_standard.c.newlib
+OSP_systemsetting.read
+OSP_systemsetting.write
+OSP_system
+	org.tizen.easy-home rx
+	org.tizen.gallery-service rx
+	org.tizen.message rwx
+	org.tizen.smemo rx
+	org.tizen.svoice r
+OSP_telephonymanager
+	telephony_framework::api_network r
+OSP_telephony
+	telephony_framework::api_sim r
+OSP_text
+OSP_ui.animations
+OSP_ui.controls
+OSP_ui.effects
+OSP_ui.layout
+OSP_uimanager
+OSP_ui.scenes
+OSP_ui
+OSP_uix.services
+OSP_uix
+OSP_unique.ptr
+OSP_useridentity
+OSP_userprofile.read
+	contacts-service::read r
+OSP_userprofile.write
+	contacts-service::write w
+	contacts-service::read r
+OSP_vibrator
+OSP_videorecorder
+OSP_wappush
+	msg-service::wappush rw
+	msg-service::write rw
+OSP_web.json
+OSP_web.privacy
+	org.tizen.browser::db_external rw
+	org.tizen.browser rwx
+OSP_web.service
+	org.tizen.browser::db_external rw
+	org.tizen.browser rwx
+OSP_wifi.admin
+OSP_wifimanager
+OSP_wifi.read
+OSP_wifi.wifidirect.admin
+OSP_wifi.wifidirect.read
+WRT_alarm
+WRT_application.install
+WRT_application.kill
+WRT_application.launch
+WRT_application.read
+WRT_application
+WRT_appmanager.certificate
+WRT_appmanager.kill
+WRT_bluetooth.admin
+	bt-service::admin w
+	bt-service::manager w
+WRT_bluetooth.gap
+	bt-service::gap w
+WRT_bluetoothmanager
+	bt-service::admin w
+WRT_bluetooth
+WRT_bluetooth.spp
+	bt-service::spp w
+WRT_bookmark.read
+	org.tizen.browser::db_external rw
+WRT_bookmark
+	org.tizen.browser::db_external rw
+WRT_bookmark.write
+WRT_calendar.read
+	calendar-service::read r
+	calendar-service::svc rw
+WRT_calendar
+WRT_calendar.write
+	calendar-service::read r
+	calendar-service::write w
+	calendar-service::svc rw
+WRT_callhistory.read
+	contacts-service::phonelog-read r
+	contacts-service::phonelog r
+WRT_callhistory
+WRT_callhistory.write
+WRT_contact.read
+	contacts-service::read r
+	contacts-service::svc rw
+WRT_contact
+WRT_contact.write
+	contacts-service::read r
+	contacts-service::write w
+	contacts-service::svc rw
+WRT_content.read
+WRT_content
+WRT_content.write
+WRT_datacontrol.consumer
+WRT_datacontrol
+WRT_datasync
+WRT_download
+WRT_felica
+	felica-client rx
+	felica-mfc w
+	
+WRT_filesystem.read
+WRT_filesystem
+WRT_filesystem.write
+WRT_log
+WRT_messageport
+	tizenutc00 rwx
+WRT_messaging.read
+WRT_messaging.send
+	msg-service::write rw
+WRT_messaging
+WRT_messaging.write
+	msg-service::read rw
+WRT_networkbearerselection
+WRT_nfc.admin
+	nfc-manager__admin w
+	nfc-manager::common w
+WRT_nfc.cardemulation
+WRT_nfc.common
+	nfc-manager::common w
+WRT_nfc.p2p
+WRT_nfc
+WRT_nfc.tag
+WRT_notification.read
+WRT_notification
+WRT_notification.write
+WRT_package.info
+WRT_packagemanager.install
+	syslogd rwx
+	telephony_framework rx
+	ode rx
+	org.tizen.volume rx
+	org.tizen.cluster-home rx
+	drmfw rx
+	org.tizen.app-tray rx
+	org.tizen.miniapp-tray rx
+	org.tizen.quickpanel rx
+	brcm_daemon rx
+	org.tizen.data-provider-slave rx
+WRT_power
+WRT_push
+WRT_securestorage.read
+WRT_securestorage.write
+WRT_se
+WRT_setting
+	org.tizen.setting rwx
+WRT
+	activesync-ui::eas-appsvc rwxa-
+	ail::db rwxa-
+	alarm-server rwxa-
+	allshare rwxa-
+	allshare::svc rwxa-
+	allshare-dms rwxa-
+	allshare-dms::config rwxa-
+	allshare-dms::svc rwxa-
+	always rwxa-
+	app2sd rwxa-
+	app-svc rwxa-
+	app-svc::db rwxa-
+	aul rwxa-
+	aul::db rwxa-
+	badge rwxa-
+	badge::db rwxa-
+	bluetooth-tools rwxa-
+	browser-provider rwxa-
+	bt_agent::bt_hfp_agent rwxa-
+	bt_agent::bt_map_agent rwxa-
+	bt_agent::bt_pb_agent rwxa-
+	bt_firmware rwxa-
+	bt_share rwxa-
+	bt_share::db rwxa-
+	bt-service rwxa-
+	calendar-service rwx
+	cbhm rwxa-
+	cloud-content-sync rwxa-
+	cloud-content-sync::db rwxa-
+	cloud-content-sync-server rwxa-
+	cloud-pdm rwxa-
+	cloud-pdm::db rwxa-
+	cloud-pdm-server rwxa-
+	data-provider-master rwxa-
+	data-provider-master::data rwxa-
+	data-provider-master::share rwxat
+	connman rwxa-
+	contacts-service rwx
+	context-service rwxa-
+	crash-popup rwxa-
+	crash-viewer rwxa-
+	crash-worker rwxa-
+	crash-worker::all_log_dump rwxa-
+	csc-feature rwxa-
+	csc-manager rwxa-
+	cups rwxa-
+	dali rwxa-
+	data-provider-master::db rwxa-
+	dbus rwxa-
+	display_wd rwxa-
+	dlogutil rwxa-
+	dlogutil::dlogscript rwxa-
+	download-provider rwxa-
+	drmfw::db rwxa-
+	dropbox rwxa-
+	e17 rwxa-
+	e17-data rwxa-
+	eas-engine rwxa-
+	efreet rwxa-
+	email-service rwx
+	factory-reset rwxa-
+	immvibed rwxa-
+	ims-service rwxa-
+	ims-service::db rwxa-
+	isf rwxa-
+	kies-via-wifi::db rwxa-
+	libaccounts-svc::db r
+	libmm-media-call rwxa-
+	libslp-alarm rwxa-
+	libslp-alarm::db rwxa-
+	libslp-memo rwxa-
+	libsocial-service rwxa-
+	libsocial-service::db rwxa-
+	live-dictionary rwxa-
+	live-setting-app rwxa-
+	location_fw rwxa-
+	location_fw::brcm rwxa-
+	location_fw::db rwxa-
+	location_fw::server rwxa-
+	mdm-server rwxa-
+	mdm-server::db rwxa-
+	media-data::db rwxa-
+	media-server rwxa-
+	miracast-server rwxa-
+	mmicheck::mmi_check rwxa-
+	mobex-agent rwxa-
+	mobex-agent::cfg rwxa-
+	mobex-agent::db rwxa-
+	mobicore-daemon rwxa-
+	mobileprint rwxa-
+	msg-service rwx
+	msg-service::db rw
+	mtp-responder rwxa-
+	net.wifi-qs rwxa-
+	net-config rwxa-
+	nfc-manager w
+	nfc-share-service rwxa-
+	notification rwxa-
+	notification::db rwxa-
+	obexd rwxa-
+	obexd::client rwxa-
+	oma-dm-agent rwxa-
+	oma-dm-agent::db rwxa-
+	oma-ds-agent rwxa-
+	oma-ds-agent::cfg rwxa-
+	oma-ds-agent::db rwxa-
+	org.tizen.sat-ui rwxa-
+	osp::compat rwxa-
+	osp::root-certs rwxa-
+	osp::user-certs rwxa-
+	osp-app-service rwxa-
+	osp-channel-service rwxa-
+	osp-connectivity-service rwxa-
+	osp-installer rwxa-
+	osp-livebox-service rwxa-
+	osp-search-service rwxa-
+	osp-security-service rwxa-
+	phone-misc rwxa-
+	pims-ipc rwxa-
+	pkgmgr rwxa-
+	pkgmgr-client rwxa-
+	pkgmgr-info rwxa-
+	pkgmgr-installer rwxa-
+	pkgmgr-parser rwxa-
+	pkgmgr-server rwxa-
+	power_manager rwxa-
+	pulseaudio rwxat
+	push-service rwxa-
+	push-service::db rwxa-
+	resman rwxa-
+	rua rwxa-
+	rua::db rwxa-
+	samsung.system-panel rwxa-
+	samsung-account-front rwxa-
+	secure-storage rwxa-
+	sensor-framework rwxa-
+	shortcut-service::db rwxa-
+	smartcard-service rwxa-
+	sound_server rwxa-
+	sqlfs rwxa-
+	starter rwxa-
+	stest-service::stest_service rwxa-
+	stt-server rwxa-
+	svi-data rwxa-
+	sys-assert rwxa-
+	sys-assert::core rwxat
+	sys-assert::core-launcher rwxa-
+	sys-assert::info rwxa-
+	syspopup rwxa-
+	syspopup::db rwxa-
+	device::app_logging rwxa-
+	device::audio rwxa-
+	device::camera rwxa-
+	system::homedir rwxat
+	device::hwcodec rwxa-
+	system::media rwxat
+	device::recording rwxa-
+	device::sys_logging rwxa-
+	device::bklight rwxa-
+	system::use_internet rwxa-
+	system::vconf rwxat
+	device::video rwxa-
+	system::share rwxat
+	system-server rwxa-
+	telepathy rwxa-
+	telephony_framework::db rwxa-
+	thumb-server rwxa-
+	tts-engine-samsung::vdata rwxa-
+	tts-server rwxa-
+	ug_bluetooth rwxa-
+	ug-camera-efl rwxa-
+	ug-image-viewer-efl rwxa-
+	ug-launcher rwxa-
+	ug-setting-call-efl rwxa-
+	ui-gadget::client rwxa-
+	usbotg-syspopup rwxa-
+	usb-printer-detector rwxa-
+	usb-server rwxa-
+	usb-server::usb-r rwxa-
+	usb-server::usb-rx rwxa-
+	usb-syspopup rwxa-
+	vcs-server rwxa-
+	video-hub rwxa-
+	vt-stack rwxa-
+	webkit2-efl rwxa-
+	webkit2-extension rwxa-
+	wifi_direct_manager rwxa-
+	worldclock::db rwxa-
+	wpasupplicant rwxa-
+	wrt-commons::db_wrt rwxa-
+	wrt-commons::db_wrt_autosave rwxa-
+	wrt-commons::db_wrt_custom_handler rwxa-
+	wrt-security::db_ace rwxa-
+	xorg rwxa-
+	youtube rwxa-
+	zeromq rwxa-
+	pkgmgr::db rwxa-
+	location_fw::client rwxa-
+	wrt-security-daemon::db rw---
+	syslogd rwx--
+	nas9xepmna rwxa-
+	wrt-security-daemon rwxa-
+	osp::datacontrol rwxat
+	livebox.web-provider rwx--
+	email-service::db rw
+	resman::db rwxa-
+	ug-email-docsearch-efl rwxat
+	deviced rwxa-
+	wrt::wrt-launcher rwxa-
+	wrt-popup-wrt-runtime rwxa-
+	q7097a278m rwxa-
+	privacy-manager::db rw
+	privacy-manager::daemon w
+	osp::privilege-description-db rw
+	system::clipboard rwxat
+	wrt_launchpad_daemon rwxa
+	system::vconf_setting arwx
+	system::vconf_inhouse arwx
+	system::vconf_privacy arwx
+	system::vconf_system arwx
+	system::vconf_multimedia arwx
+	system::vconf_network arwx
+	system::vconf_misc arwx
+	sdbd::home rx
+	* t
+	org.tizen.indicator rwx
+	app-package::db rw
+	sdbd rwx
+	_ arwx
+	default-fonts-fc-sdk::config r
+	system::share arwxt
+	security-server::api-data-share rwxa-
+	org.tizen.quickpanel arwxt
+	system::ext_storage arwxt
+	browser::db_external rw
+WRT_systeminfo
+	telephony_framework::api_modem r
+	telephony_framework::api_sim r
+WRT_systemmanager
+	telephony_framework::api_modem r
+WRT_system
+	telephony_framework::api_sim r
+WRT_time.read
+WRT_time
+WRT_time.write
+WRT_tizen
