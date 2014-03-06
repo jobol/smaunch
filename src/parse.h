@@ -1,3 +1,4 @@
+/* 2014, Copyright Intel & Jose Bollo <jose.bollo@open.eurogiciel.org>, license MIT */
 enum parse_constants {
 	parse_key_count = 32,
 	parse_buffer_length = 8192,

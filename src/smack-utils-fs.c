@@ -1,3 +1,4 @@
+/* 2014, Copyright Intel & Jose Bollo <jose.bollo@open.eurogiciel.org>, license MIT */
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>

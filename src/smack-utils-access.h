@@ -1,3 +1,4 @@
+/* 2014, Copyright Intel & Jose Bollo <jose.bollo@open.eurogiciel.org>, license MIT */
 typedef int smack_access;
 
 enum {

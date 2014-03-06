@@ -1,3 +1,4 @@
+/* 2014, Copyright Intel & Jose Bollo <jose.bollo@open.eurogiciel.org>, license MIT */
 
 int smaunch_smack_load_database(const char *path);
 int smaunch_smack_has_database();

@@ -1,3 +1,4 @@
+/* 2014, Copyright Intel & Jose Bollo <jose.bollo@open.eurogiciel.org>, license MIT */
 /*
  * NOTE: This version is not final
  *  - improve compiled format (remove unused data, check magic and version)
