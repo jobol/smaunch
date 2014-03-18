@@ -46,7 +46,7 @@ Example for fs:
 user
 	-		/home				-- dont see other users
 	+rw		/home/%user			-- see itself
-	+ro		/sys/fs/smackfs		-- disable write access to change-rule
+	+r		/sys/fs/smackfs		-- disable write access to change-rule
 
 -- basic restricted access
 restricted
@@ -55,7 +55,7 @@ restricted
 	+r		/home/%user/share					-- shared data
 	+rw		/home/%user/share/%appid			-- own shared data
 	+rw		/home/%user/share/.cert/%cert		-- same certificate
-	+ro		/sys/fs/smackfs						-- disable change-rule
+	+r		/sys/fs/smackfs						-- disable change-rule
 ```
 
 
