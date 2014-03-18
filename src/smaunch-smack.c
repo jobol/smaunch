@@ -64,6 +64,8 @@ static int last_item = INVALID;
 static struct buffer hash_buffer = { 0, 0, 0 };
 static struct buffer data_buffer = { 0, 0, 0 };
 
+static const char *current_subject = "User";
+
 
 #ifdef TEST
 void cdump(const char *name, smack_coda *context);
@@ -257,10 +259,12 @@ static void add_context_key(smack_coda *set, int keyi)
 static int context_apply(const smack_coda *codas, int file, int multi, int diff)
 {
 	char buffer[8192], *rule;
-	unsigned index, pos, lr, wr;
+	unsigned index, pos, lr, wr, ls, ms;
 	int state;
 	smack_coda coda;
 	ssize_t sts;
+
+	ls = (int)strlen(current_subject);
 
 	pos = 0;
 	index = object_count;
@@ -282,21 +286,25 @@ static int context_apply(const smack_coda *codas, int file, int multi, int diff)
 			/* changed, rule to emit */
 			rule = (char*)($(object_strings[index]));
 			lr = strlen(rule);
-			assert(lr + 8 <= sizeof buffer);
+			ms = ls + lr + smack_coda_bits_count + 3; /* max size: subject + object + max permissions + 2 spaces + 1 terminating nul */
+			assert(ms <= sizeof buffer);
 
 			/* flush if needed */
-			if (pos + lr + 8 > sizeof buffer) {
+			if (pos + ms > sizeof buffer) {
 				state = 12;
 				break;
 			}
 
 		case 2:
 			/* fill the buffer */
-			assert(pos + lr + 8 <= sizeof buffer);
+			assert(pos + ms <= sizeof buffer);
+			memcpy(buffer + pos, current_subject, ls);
+			pos += ls;
+			buffer[pos++] = ' ';
 			memcpy(buffer + pos, rule, lr);
 			pos += lr;
 			buffer[pos++] = ' ';
-			pos += smack_coda_to_string(coda, buffer + pos, 6);
+			pos += smack_coda_to_string(coda, buffer + pos, smack_coda_bits_count);
 			buffer[pos++] = '\n';
 			state = multi ? 1 : 11;
 			break;
@@ -618,6 +626,15 @@ int smaunch_smack_has_database()
 	return !!current_loaded_database;
 }
 
+void smaunch_smack_set_subject(const char *subject)
+{
+	assert(subject != NULL);
+	assert(smack_subject_is_valid(subject));
+
+	current_subject = subject;
+}
+
+
 int smaunch_smack_has_key(const char *key)
 {
 	int keyi;
@@ -688,7 +705,7 @@ int smaunch_smack_context_apply()
 	if (file < 0)
 		return -errno;
 
-	multiline = 0;
+	multiline = 1;
 	all = 1;
 	result = context_apply(coda_context, file, multiline, !all);
 	close(file);
