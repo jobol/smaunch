@@ -33,14 +33,14 @@ int smaunch_apply()
 {
 	int result;
 
-	if (smaunch_fs_has_database()) {
-		result = smaunch_fs_context_apply();
+	if (smaunch_smack_has_database()) {
+		result = smaunch_smack_context_apply();
 		if (result < 0)
 			return result;
 	}
 
-	if (smaunch_smack_has_database()) {
-		result = smaunch_smack_context_apply();
+	if (smaunch_fs_has_database()) {
+		result = smaunch_fs_context_apply();
 		if (result < 0)
 			return result;
 	}
