@@ -37,7 +37,7 @@ static char *compute_smack_mount_point(const char *mountfile)
 		for (iter = buffer, end = buffer + readen ; iter != end ; iter++) {
 			switch(state) {
 			case 0: state = (*iter == 's') ? 2 : 1; break;
-			case 1: if (*iter != '\n') state = 0; break;
+			case 1: if (*iter == '\n') state = 0; break;
 			case 2: state = (*iter == 'm') ? 3 : 1; break;
 			case 3: state = (*iter == 'a') ? 4 : 1; break;
 			case 4: state = (*iter == 'c') ? 5 : 1; break;
