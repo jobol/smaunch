@@ -64,8 +64,10 @@ int smaunch_drop_caps()
 
 #ifdef TEST
 #include <stdio.h>
+
 int main(int argc, char** argv)
 {
+#if 0
 	char buffer[4096], command[1024], key[1024];
 	int n;
 	while(fgets(buffer,sizeof buffer,stdin)) {
@@ -93,6 +95,24 @@ int main(int argc, char** argv)
 			break;
 		}
 	}
+#else
+	int sts;
+	const char *substs[][2] = { { "%user", "jb" } };
+
+	smaunch_fs_set_substitutions(substs, 1);
+
+	sts = smaunch_init("db.smack", "db.fs", "restricted");
+	printf("init %d\n", sts);
+
+	sts = smaunch_smack_context_add("calendar.write");
+	printf("add %d\n", sts);
+
+	sts = smaunch_smack_context_add("WRT");
+	printf("add %d\n", sts);
+
+	sts = smaunch_apply();
+	printf("apply %d\n", sts);
+#endif
 	return 0;
 }
 #endif
