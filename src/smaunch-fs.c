@@ -741,6 +741,7 @@ static int apply_free_dirs(int diri)
 		case nothing:
 			break;
 		case should_exist:
+		case mount_read_write: /* yes, even read-write */
 			result = apply_free_dirs($(diri)[dir_child]);
 			break;
 		default:
