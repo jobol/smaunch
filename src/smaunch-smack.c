@@ -21,8 +21,13 @@
 #include "smaunch-smack.h"
 #include "smack-utils-label.h"
 #include "smack-utils-coda.h"
+#include "smack-utils-fs.h"
 #include "buffer.h"
 #include "parse.h"
+
+#if !defined(SIMULATION)
+#define SIMULATION 0
+#endif
 
 #define INVALID    (-1)
 #define ISVALID(x) ((x)>=0)
@@ -352,7 +357,7 @@ static int compile_database(const char *path)
 			return sts;
 		}
 
-		switch (parse.keycount) {
+		switch (parse.fieldcount) {
 		case 0: /* nothing (may append at end) */
 			break;
 
@@ -361,7 +366,7 @@ static int compile_database(const char *path)
 				close(parse.file);
 				return parse_make_syntax_error(smack_object_without_access,parse.lino);
 			}
-			sts = item_set_get(parse.keys[0], 1);
+			sts = item_set_get(parse.fields[0], 1);
 			if (sts < 0) {
 				close(parse.file);
 				return sts;
@@ -379,16 +384,16 @@ static int compile_database(const char *path)
 				close(parse.file);
 				return parse_make_syntax_error(smack_no_key_set, parse.lino);
 			}
-			if (!smack_object_is_valid(parse.keys[0])) {
+			if (!smack_object_is_valid(parse.fields[0])) {
 				close(parse.file);
 				return parse_make_syntax_error(smack_invalid_object, parse.lino);
 			}
-			if (!smack_coda_string_is_valid(parse.keys[1])) {
+			if (!smack_coda_string_is_valid(parse.fields[1])) {
 				close(parse.file);
 				return parse_make_syntax_error(smack_invalid_access, parse.lino);
 			}
 			/* add the rule */
-			sts = add_rule_key(keyi, parse.keys[0], parse.keys[1]);
+			sts = add_rule_key(keyi, parse.fields[0], parse.fields[1]);
 			if (sts < 0) {
 				close(parse.file);
 				return sts;
@@ -657,8 +662,38 @@ int smaunch_smack_context_add(const char *key)
 
 int smaunch_smack_context_apply()
 {
+#if SIMULATION
 	assert(smaunch_smack_has_database());
 	return context_apply(coda_context, 1, 1, 1);
+#else
+	int file, multiline, all, result;
+	size_t len;
+	char path[PATH_MAX];
+	const char *smount;
+	static const char itf[] = "/load-self2";
+
+	assert(smaunch_smack_has_database());
+
+	smount = smack_fs_mount_point();
+	if (!smount)
+		return -EACCES;
+
+	len = strlen(smount);
+	if (len + sizeof itf > sizeof path)
+		return -ENAMETOOLONG;
+	memcpy(path, smount, len);
+	memcpy(path + len, itf, sizeof itf);
+
+	file = open(path, O_WRONLY);
+	if (file < 0)
+		return -errno;
+
+	multiline = 0;
+	all = 1;
+	result = context_apply(coda_context, file, multiline, !all);
+	close(file);
+	return result;
+#endif
 }
 
 

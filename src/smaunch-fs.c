@@ -15,7 +15,10 @@
 #include "parse.h"
 #include "buffer.h"
 
+#if !defined(SIMULATION)
 #define SIMULATION 0
+#endif
+
 #if SIMULATION
 #include <stdio.h>
 #define unshare(x)           (printf("unshare(%s)\n",#x), 0)
@@ -410,7 +413,7 @@ static int compile_database(const char *path)
 			return sts;
 		}
 
-		switch (parse.keycount) {
+		switch (parse.fieldcount) {
 		case 0:
 			break;
 
@@ -419,7 +422,7 @@ static int compile_database(const char *path)
 				close(parse.file);
 				return parse_make_syntax_error(fs_directory_incomplete, parse.lino);
 			}
-			sts = get_key(parse.keys[0], 1);
+			sts = get_key(parse.fields[0], 1);
 			if (sts < 0) {
 				close(parse.file);
 				return sts;
@@ -432,21 +435,21 @@ static int compile_database(const char *path)
 				close(parse.file);
 				return parse_make_syntax_error(fs_directory_incomplete, parse.lino);
 			}
-			if (0 == strcmp(parse.keys[0], "-")) {
+			if (0 == strcmp(parse.fields[0], "-")) {
 				kind = none;
-			} else if (0 == strcmp(parse.keys[0], "+r")) {
+			} else if (0 == strcmp(parse.fields[0], "+r")) {
 				kind = read_only;
-			} else if (0 == strcmp(parse.keys[0], "+rw")) {
+			} else if (0 == strcmp(parse.fields[0], "+rw")) {
 				kind = read_write;
 			} else {
 				close(parse.file);
 				return parse_make_syntax_error(fs_wrong_action, parse.lino);
 			}
-			if (parse.keys[1][0] != '/') {
+			if (parse.fields[1][0] != '/') {
 				close(parse.file);
 				return parse_make_syntax_error(fs_bad_directory, parse.lino);
 			}
-			sts = get_dir_split(parse.keys[1], 1);
+			sts = get_dir_split(parse.fields[1], 1);
 			if (sts < 0) {
 				close(parse.file);
 				if (sts + E2BIG)

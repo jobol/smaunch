@@ -1,4 +1,5 @@
 /* 2014, Copyright Intel & Jose Bollo <jose.bollo@open.eurogiciel.org>, license MIT */
+
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -7,7 +8,10 @@
 
 #include "parse.h"
 
-
+/* 
+ * Add the character 'c' to the line data of 'parse'.
+ * Return 0 in case of success or a composed error indicator.
+ */
 static int add_char(struct parse *parse, char c)
 {
 	if (parse->linepos >= sizeof parse->line) {
@@ -19,24 +23,32 @@ static int add_char(struct parse *parse, char c)
 	return 0;
 }
 
+/*
+ * Add the terminating zero to the current field and increment
+ * the count of read fields.
+ * Return 0 in case of success or a composed error indicator.
+ */
 static int end_field(struct parse *parse)
 {
 	int result;
 
 	result = add_char(parse, 0);
 	if (result == 0)
-		parse->keycount++;
+		parse->fieldcount++;
 	return result;
 }
 
+/*
+ * Begin a field whose first character is 'c'.
+ */
 static int begin_field(struct parse *parse, char c)
 {
-	if (parse->keycount >= parse_key_count) {
-		parse->finished = parse_make_syntax_error(parse_too_much_keys,parse->lino);
+	if (parse->fieldcount >= parse_field_count) {
+		parse->finished = parse_make_syntax_error(parse_too_much_fields,parse->lino);
 		return parse->finished;
 	}
 
-	parse->keys[parse->keycount] = parse->line + parse->linepos;
+	parse->fields[parse->fieldcount] = parse->line + parse->linepos;
 	return add_char(parse, c);
 }
 
@@ -52,7 +64,7 @@ int parse_line(struct parse *parse)
 
 	state = 0;
 	parse->linepos = 0;
-	parse->keycount = 0;
+	parse->fieldcount = 0;
 	parse->begsp = 0;
 	parse->lino++;
 	for(;;) {
@@ -66,6 +78,7 @@ int parse_line(struct parse *parse)
 					parse->begsp = 1;
 					break;
 				case '\n':
+					parse->begsp = 0;
 					parse->lino++;
 					break;
 				case '-':
@@ -81,50 +94,45 @@ int parse_line(struct parse *parse)
 				break;
 
 			case 1: /* begin of comment */
-				switch(c) {
-				case ' ':
-				case '\t':
+				if (c == '-')
+					state = 2; /* yes, its a comment */
+				else {
+					/* the field was starting with a dash */
 					sts = begin_field(parse, '-');
 					if (sts)
 						return sts;
-					sts = end_field(parse);
-					if (sts)
-						return sts;
-					state = 4;
-					break;
-				case '\n':
-					sts = begin_field(parse, '-');
-					if (sts)
-						return sts;
-					sts = end_field(parse);
-					if (sts)
-						return sts;
-					return 0;
-				case '-':
-					state = 2;
-					break;
-				default:
-					sts = begin_field(parse, '-');
-					if (sts)
-						return sts;
-					sts = add_char(parse, c);
-					if (sts)
-						return sts;
-					state = 3;
-					break;
+					switch(c) {
+					case ' ':
+					case '\t':
+					case '\n':
+						sts = end_field(parse);
+						if (sts)
+							return sts;
+						if (c == '\n')
+							return 0;
+						state = 4;
+						break;
+					default:
+						sts = add_char(parse, c);
+						if (sts)
+							return sts;
+						state = 3;
+						break;
+					}
 				}
 				break;
 
 			case 2: /* comment */
 				if (c == '\n') {
-					if (parse->keycount)
+					if (parse->fieldcount)
 						return 0;
+					parse->begsp = 0;
 					parse->lino++;
 					state = 0;
 				}
 				break;
 
-			case 3: /* key */
+			case 3: /* field */
 				switch(c) {
 				case ' ':
 				case '\t':
@@ -146,7 +154,7 @@ int parse_line(struct parse *parse)
 				}
 				break;
 
-			case 4: /* after key */
+			case 4: /* after field */
 				switch(c) {
 				case ' ':
 				case '\t':
@@ -183,7 +191,7 @@ int parse_line(struct parse *parse)
 				sts = begin_field(parse, '-');
 				if (sts)
 					return sts;
-			case 3: /* key */
+			case 3: /* field */
 				sts = end_field(parse);
 				if (sts)
 					return sts;
@@ -216,7 +224,7 @@ void parse_init(struct parse *parse, int file)
 	parse->bufcount = 0;
 	parse->bufpos = 0;
 	parse->linepos = 0;
-	parse->keycount = 0;
+	parse->fieldcount = 0;
 	parse->begsp = 0;
 }
 
@@ -247,9 +255,9 @@ int main(int argc, char **argv)
 		if (sts)
 			printf("error %d\n",sts);
 		else {
-			printf("ok l=%d k=%d b=%d f=%d:",parse.lino,parse.keycount, parse.begsp, parse.finished);
-			for (i = 0 ; i < parse.keycount ; i++)
-				printf(" %d='%s'",i+1,parse.keys[i]);
+			printf("ok l=%d k=%d b=%d f=%d:",parse.lino,parse.fieldcount, parse.begsp, parse.finished);
+			for (i = 0 ; i < parse.fieldcount ; i++)
+				printf(" %d='%s'",i+1,parse.fields[i]);
 			printf("\n");
 		}
 	}

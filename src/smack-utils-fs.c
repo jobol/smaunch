@@ -4,12 +4,9 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <limits.h>
 
 #include "smack-utils-fs.h"
-
-
-static char *internal_smack_mount_point = NULL;
-static int internal_smack_mount_point_computed = 0;
 
 /*
  * Returns the mount point of the the smack filesystem
@@ -21,7 +18,7 @@ static char *compute_smack_mount_point(const char *mountfile)
 {
 	int file, state, pos;
 	ssize_t readen;
-	char buffer[2048], *iter, *end, mount[1024];
+	char buffer[16384], *iter, *end, mount[PATH_MAX];
 
 	/* opens the mount file */
 	file = open(mountfile, O_RDONLY);
@@ -39,7 +36,7 @@ static char *compute_smack_mount_point(const char *mountfile)
 		}
 		for (iter = buffer, end = buffer + readen ; iter != end ; iter++) {
 			switch(state) {
-			case 0: if (*iter == 's') { state = 2; break; }
+			case 0: state = (*iter == 's') ? 2 : 1; break;
 			case 1: if (*iter != '\n') state = 0; break;
 			case 2: state = (*iter == 'm') ? 3 : 1; break;
 			case 3: state = (*iter == 'a') ? 4 : 1; break;
@@ -68,11 +65,14 @@ static char *compute_smack_mount_point(const char *mountfile)
 
 const char *smack_fs_mount_point()
 {
-	if (!internal_smack_mount_point_computed) {
-		internal_smack_mount_point = compute_smack_mount_point("/proc/mounts");
-		internal_smack_mount_point_computed = 1;
+	static int computed = 0;
+	static char *result;
+
+	if (!computed) {
+		computed = 1;
+		result = compute_smack_mount_point("/proc/self/mounts");
 	}
-	return internal_smack_mount_point;
+	return result;
 }
 
 

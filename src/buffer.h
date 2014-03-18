@@ -1,13 +1,16 @@
 /* 2014, Copyright Intel & Jose Bollo <jose.bollo@open.eurogiciel.org>, license MIT */
+
+/*
+ * The buffer structure is used to have compiled version
+ * of files and improve the upload speed.
+ */
 struct buffer {
-	int count;
-	int capacity;
-	int *data;
+	int count;		/* count of data used */
+	int capacity;	/* count of data allocated */
+	int *data;		/* the data */
 };
 
-
-/* set (may allocate) a new count of data and returns the previous count 
-or error */
+/* set (may allocate) a new count of data and returns the previous count or error */
 int buffer_set_count(struct buffer *buffer, int count);
 
 /* allocates count integers in buffer and returns the index */

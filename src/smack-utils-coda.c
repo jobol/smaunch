@@ -4,37 +4,7 @@
 
 #include "smack-utils-coda.h"
 
-static int validcoda(int c)
-{
-	switch(c) {
-	case smack_coda_a:
-	case smack_coda_l:
-	case smack_coda_r:
-	case smack_coda_t:
-	case smack_coda_w:
-	case smack_coda_x:
-		return 1;
-	}
-	return 0;
-}
-
-static char coda2char(int c)
-{
-	char r;
-
-	assert(validcoda(c));
-
-	switch(c) {
-	case smack_coda_a: r = 'a'; break;
-	case smack_coda_l: r = 'l'; break;
-	case smack_coda_r: r = 'r'; break;
-	case smack_coda_t: r = 't'; break;
-	case smack_coda_w: r = 'w'; break;
-	case smack_coda_x: r = 'x'; break;
-	}
-
-	return r;
-}
+static char codachars[smack_coda_bits_count] = { 'l', 't', 'a', 'x', 'w', 'r' };
 
 static int char2coda(char c)
 {
@@ -52,7 +22,6 @@ static int char2coda(char c)
 	default: r = 0; break;
 	}
 
-	assert(!r || coda2char(r)==lower_case_of(c));
 	return r;
 
 #undef lower_case_of
@@ -80,6 +49,7 @@ int smack_coda_is_valid(smack_coda coda)
 smack_coda smack_coda_complement(smack_coda coda)
 {
 	assert(smack_coda_is_valid(coda));
+
 	return (~coda) & smack_coda_bits_mask;
 }
 
@@ -108,9 +78,12 @@ int smack_coda_string_length(smack_coda coda)
 	if (!coda) {
 		r = 1;
 	} else {
-		for(r=0, c=smack_coda_max ; c ; c>>=1) {
-			if (coda & c)
-				r++;
+		r = 0;
+		c = smack_coda_bits_count;
+		while (c) {
+			c--;
+			r += coda & 1;
+			coda >>= 1;
 		}
 	}
 
@@ -129,17 +102,17 @@ int smack_coda_to_string(smack_coda coda, char *text, int length)
 		text[0] = '-';
 		r = 1;
 	} else {
-		for(r=0, c=smack_coda_max ; c ; c>>=1) {
-			if (coda & c)
-				text[r++] = coda2char(c);
-		}
+		r = 0;
+		c = smack_coda_bits_count;
+		while (c)
+			if (1 & (coda >> --c))
+				text[r++] = codachars[c];
 	}
 
 	assert(r == smack_coda_string_length(coda));
 	assert(r <= length);
 	return r;
 }
-
 
 
 
