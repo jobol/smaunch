@@ -1,6 +1,6 @@
 .PHONY: all
 
-all: smaunch
+all: smaunch smaunchi
 
 DEPSRC = \
 	smack-utils-label.c \
@@ -21,6 +21,9 @@ DEPINC = \
 	buffer.h
 
 smaunch: smaunch.c $(DEPSRC) $(DEPINC)
-	gcc -DTEST -DSIMULATION=1 -Wall -g -o smaunch smaunch.c $(DEPSRC)
+	gcc -DTEST -DSIMULATION=0 -Wall -g -o smaunch smaunch.c $(DEPSRC)
+
+smaunchi: smaunch.c $(DEPSRC) $(DEPINC)
+	gcc -DTEST -DSIMULATION=1 -Wall -g -o smaunchi smaunch.c $(DEPSRC)
 
 
