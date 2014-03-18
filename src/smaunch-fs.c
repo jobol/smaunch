@@ -684,7 +684,11 @@ static int apply_mount(int refdiri, int diri, enum actions refact, enum actions 
 		return result;
 
 	if (apply && ronly) {
-		result = mount("", tmpdir, "", MS_REMOUNT|MS_RDONLY, 0);
+		if (bind) {
+			result = mount("", tmpdir, "", MS_BIND|MS_REMOUNT|MS_RDONLY, 0);
+		} else {
+			result = mount("", tmpdir, "", MS_REMOUNT|MS_RDONLY, 0);
+		}
 		if (result < 0)
 			return -errno;
 	}
