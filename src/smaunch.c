@@ -2,48 +2,80 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <assert.h>
 #include <sys/prctl.h>
 #include <linux/securebits.h>
 
+#include "smack-utils-fs.h"
 #include "smaunch-smack.h"
 #include "smaunch-fs.h"
 
-int smaunch_init(const char *smackdb, const char *fsdb, const char *defskey)
+int smaunch_init(const char *smackdb, const char *fsdb)
 {
 	int result;
 
-	if (smackdb) {
-		result = smaunch_smack_load_database(smackdb);
-		if (result < 0) /* todo: syntax error? */
-			return result;
-	}
+	assert(smackdb);
+	assert(fsdb);
 
-	if (fsdb) {
-		if (!defskey)
-			return -EINVAL;
-		result = smaunch_fs_load_database(fsdb);
-		if (result < 0) /* todo: syntax error? */
-			return result;
-		result = smaunch_fs_context_start(defskey);
-	}
+	smack_fs_mount_point();
+	result = smaunch_smack_load_database(smackdb);
+	if (result < 0) /* todo: syntax error? */
+		return result;
+
+	result = smaunch_fs_load_database(fsdb);
+	if (result < 0) /* todo: syntax error? */
+		return result;
+
 	return result;
 }
 
-int smaunch_apply()
+int smaunch_context_start(const char *defskey)
+{
+	assert(defskey);
+	assert(smaunch_smack_has_database());
+	assert(smaunch_fs_has_database());
+
+	smaunch_smack_context_start();
+	return smaunch_fs_context_start(defskey);
+}
+
+int smaunch_context_add(const char *key)
+{
+	int rsm, rfs;
+
+	assert(key);
+	assert(smaunch_smack_has_database());
+	assert(smaunch_fs_has_database());
+
+	rsm = smaunch_smack_context_add(key);
+	rfs = smaunch_fs_context_add(key);
+
+	if (!rsm)
+		return rfs==-ENOENT ? 0 : rfs;
+
+	if (!rfs)
+		return rsm==-ENOENT ? 0 : rsm;
+
+	if (rsm != -ENOENT)
+		return rsm;
+
+	return rfs;
+}
+
+int smaunch_context_apply()
 {
 	int result;
 
-	if (smaunch_smack_has_database()) {
-		result = smaunch_smack_context_apply();
-		if (result < 0)
-			return result;
-	}
+	assert(smaunch_smack_has_database());
+	assert(smaunch_fs_has_database());
 
-	if (smaunch_fs_has_database()) {
-		result = smaunch_fs_context_apply();
-		if (result < 0)
-			return result;
-	}
+	result = smaunch_smack_context_apply();
+	if (result < 0)
+		return result;
+
+	result = smaunch_fs_context_apply();
+	if (result < 0)
+		return result;
 
 	return 0;
 }
@@ -97,21 +129,27 @@ int main(int argc, char** argv)
 	}
 #else
 	int sts;
-	const char *substs[][2] = { { "%user", "jb" } };
+	const char *substs[][2] = { { "%user", NULL } };
+
+	substs[0][1] = getenv("USER");
 
 	smaunch_fs_set_substitutions(substs, 1);
 
-	sts = smaunch_init("db.smack", "db.fs", "restricted");
+	sts = smaunch_init("db.smack", "db.fs");
 	printf("init %d\n", sts);
 
-	sts = smaunch_smack_context_add("calendar.write");
-	printf("add %d\n", sts);
+	sts = smaunch_context_start("restricted");
+	printf("start %d\n", sts);
 
-	sts = smaunch_smack_context_add("WRT");
-	printf("add %d\n", sts);
+	while(*++argv) {
+		sts = smaunch_context_add(*argv);
+		printf("add %s %d\n",*argv,sts);
+	}
 
-	sts = smaunch_apply();
+	sts = smaunch_context_apply();
 	printf("apply %d\n", sts);
+
+	system("/bin/sh");
 #endif
 	return 0;
 }
