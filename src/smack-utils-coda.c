@@ -27,7 +27,7 @@ static int char2coda(char c)
 #undef lower_case_of
 }
 
-
+/* see comment in smack-utils-coda.h */
 int smack_coda_string_is_valid(const char *text)
 {
 	assert(text != NULL);
@@ -39,36 +39,31 @@ int smack_coda_string_is_valid(const char *text)
 	return 1;
 }
 
-
-
+/* see comment in smack-utils-coda.h */
 int smack_coda_is_valid(smack_coda coda)
 {
 	return coda == (coda & smack_coda_bits_mask);
 }
 
-smack_coda smack_coda_complement(smack_coda coda)
-{
-	assert(smack_coda_is_valid(coda));
-
-	return (~coda) & smack_coda_bits_mask;
-}
-
+/* see comment in smack-utils-coda.h */
 smack_coda smack_coda_from_string(const char *text)
 {
-	int r;
+	smack_coda result;
 
 	assert(text != NULL);
 	assert(smack_coda_string_is_valid(text));
 
-	for(r=0 ; *text ; text++)
+	for(result=0 ; *text ; text++)
 		if (*text != '-')
-			r |= char2coda(*text);
+			result |= char2coda(*text);
 
-	assert(smack_coda_is_valid(r));
+	assert(smack_coda_is_valid(result));
 
-	return r;
+	result = smack_coda_normalize(result);
+	return result;
 }
 
+/* see comment in smack-utils-coda.h */
 int smack_coda_string_length(smack_coda coda)
 {
 	int r, c;
@@ -92,11 +87,14 @@ int smack_coda_string_length(smack_coda coda)
 	return r;
 }
 
+/* see comment in smack-utils-coda.h */
 int smack_coda_to_string(smack_coda coda, char *text, int length)
 {
 	int r, c;
 
-	assert(text != NULL && length >= smack_coda_string_length(coda));
+	assert(smack_coda_is_valid(coda));
+	assert(text != NULL);
+	assert(length >= smack_coda_string_length(coda));
 
 	if (!coda) {
 		text[0] = '-';
@@ -114,5 +112,32 @@ int smack_coda_to_string(smack_coda coda, char *text, int length)
 	return r;
 }
 
+/* see comment in smack-utils-coda.h */
+smack_coda smack_coda_complement(smack_coda coda)
+{
+	assert(smack_coda_is_valid(coda));
 
+	return (~coda) & smack_coda_bits_mask;
+}
+
+/* see comment in smack-utils-coda.h */
+smack_coda smack_coda_normalize(smack_coda coda)
+{
+	smack_coda result;
+
+	assert(smack_coda_is_valid(coda));
+
+	result = (coda & smack_coda_w) ? (coda | smack_coda_l) : coda;
+
+	assert(smack_coda_is_normal(result));
+	return result;
+}
+
+/* see comment in smack-utils-coda.h */
+int smack_coda_is_normal(smack_coda coda)
+{
+	assert(smack_coda_is_valid(coda));
+
+	return (coda & smack_coda_w) ? ((coda & smack_coda_l) != 0) : 1;
+}
 

@@ -36,14 +36,7 @@ int smack_coda_string_is_valid(const char *text);
 int smack_coda_is_valid(smack_coda coda);
 
 /*
- * Returns the complement of 'coda'.
- *
- * Requires: smack_coda_is_valid(coda)
- */
-smack_coda smack_coda_complement(smack_coda coda);
-
-/*
- * Returns the coda value for the string 'text'.
+ * Returns the normalized coda value for the string 'text'.
  *
  * Requires: text != NULL
  *           && smack_coda_string_is_valid(text)
@@ -72,4 +65,31 @@ int smack_coda_string_length(smack_coda coda);
  * Returns the count of characters written to 'text'.
  */
 int smack_coda_to_string(smack_coda coda, char *text, int length);
+
+/*
+ * Returns the complement of 'coda'.
+ *
+ * Requires: smack_coda_is_valid(coda)
+ */
+smack_coda smack_coda_complement(smack_coda coda);
+
+/*
+ * Returns 'coda' modified such that the lock permission
+ * is added if 'coda' has the write permission.
+ *
+ * Requires: smack_coda_is_valid(coda)
+ *
+ * Returns the normalized coda.
+ */
+smack_coda smack_coda_normalize(smack_coda coda);
+
+/*
+ * Check if the 'coda' is normalized what means that the write
+ * implies the lock permission.
+ *
+ * Requires: smack_coda_is_valid(coda)
+ *
+ * Returns 1 if 'coda' is normal or 0 otherwise.
+ */
+int smack_coda_is_normal(smack_coda coda);
 
