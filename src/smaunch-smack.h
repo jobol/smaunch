@@ -4,14 +4,13 @@
  * error codes for parsing
  */
 enum smaunch_smack_syntax_errors {
-    smack_line_too_long = 1,			/* line too long */
-	smack_too_much_fields = 2,			/* too many fields */
-	smack_extra_after_key = 3,			/* extra field after key */
-	smack_object_without_access = 4,	/* no permission set for the object */
-	smack_invalid_object = 5,			/* invalid object label */
-	smack_extra_after_access = 6,		/* extra field after permission */
-	smack_no_key_set = 7,				/* object without key context */
-	smack_invalid_access = 8			/* invalid permission spec */
+	smack_extra_after_key = 100,	/* extra field after key */
+	smack_object_without_access,	/* no permission set for the object */
+	smack_invalid_object,			/* invalid object label */
+	smack_extra_after_access,		/* extra field after permission */
+	smack_no_key_set,				/* object without key context */
+	smack_invalid_access,			/* invalid permission spec */
+	smack_file_empty				/* the file has no data */
 };
 
 /*

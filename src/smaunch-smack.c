@@ -94,8 +94,25 @@ static smack_coda *coda_context = 0;
 /* current subject of the rules */
 static const char *current_subject = "User";
 
-
-#define HAS_VALID_DATABASE (!!coda_reference)
+#if ALLOWCOMPILE
+/*
+ * Definitions for compiled binary file
+ */
+enum file_header {
+	header_magic_tag_1   = 0,          /* index of magic tag 1 */
+	header_magic_tag_2   = 1,          /* index of magic tag 2 */
+	header_magic_version = 2,          /* index of magic version */
+	header_data_count    = 3,          /* index of count of data */
+	header_hash_count    = 4,          /* index of count of hash */
+	header_item_count    = 5,          /* index of count of items */
+	header_object_count  = 6,          /* index of count of objects */
+	header_last_item     = 7,          /* index of last item $-index */
+	header_size          = 8,          /* size of the header */
+	HEADER_MAGIC_TAG_1   = 0x75616d73, /* 'smau' */
+	HEADER_MAGIC_TAG_2   = 0x2e68636e, /* 'nch.' */
+	HEADER_MAGIC_VERSION = 0x0a312e73  /* 's.1\n' */
+};
+#endif
 
 #ifdef TEST
 void cdump(const char *name, smack_coda *context);
@@ -239,7 +256,7 @@ static int item_get(const char *text, int create)
  *           && access != NULL
  *           && smack_object_is_valid(object)
  *           && smack_coda_string_is_valid(access)
- *           && !HAS_VALID_DATABASE
+ *           && !ISVALID(last_item)
  *
  * Returns 0 in case of success or a negative error code if failed.
  *
@@ -256,7 +273,7 @@ static int add_key_rule(int keyi, const char *object, const char *access)
 	assert(access);
 	assert(smack_object_is_valid(object));
 	assert(smack_coda_string_is_valid(access));
-	assert(!HAS_VALID_DATABASE);
+	assert(!ISVALID(last_item));
 
 	/* get the item for the object */
 	obji = item_get(object, 1);
@@ -292,7 +309,7 @@ static int add_key_rule(int keyi, const char *object, const char *access)
  * Requires: codas != NULL
  *           && (codas == coda_reference || codas == coda_context)
  *           && ISVALID(keyi)
- *           && HAS_VALID_DATABASE
+ *           && ISVALID(last_item)
  */
 static void add_context_key(smack_coda *codas, int keyi)
 {
@@ -303,7 +320,7 @@ static void add_context_key(smack_coda *codas, int keyi)
 	assert(codas);
 	assert(codas == coda_reference || codas == coda_context);
 	assert(ISVALID(keyi));
-	assert(HAS_VALID_DATABASE);
+	assert(ISVALID(last_item));
 
 	/* iterate on the rules of the key item */
 	rulei = $(keyi)[item_rules];
@@ -337,7 +354,7 @@ static void add_context_key(smack_coda *codas, int keyi)
  *
  * Requires: codas != NULL
  *           && (codas == coda_reference || codas == coda_context)
- *           && HAS_VALID_DATABASE
+ *           && ISVALID(last_item)
  *
  * Returns 0 on success or a negative error code on error.
  */
@@ -351,7 +368,7 @@ static int context_apply(const smack_coda *codas, int file, int multi, int diff)
 
 	assert(codas);
 	assert(codas == coda_reference || codas == coda_context);
-	assert(HAS_VALID_DATABASE);
+	assert(ISVALID(last_item));
 
 	/* compute the subject length */
 	ls = (int)strlen(current_subject);
@@ -426,7 +443,7 @@ static int context_apply(const smack_coda *codas, int file, int multi, int diff)
  * CAUTION, in case of error the returned data state is undefined.
  *
  * Requires: path != NULL
- *           && !HAS_VALID_DATABASE
+ *           && !ISVALID(last_item)
  *
  * Returns 0 in case of success or a negative error code in case of error.
  */
@@ -437,7 +454,7 @@ static int read_database_internal(const char *path)
 
 	/* checks */
 	assert(path);
-	assert(!HAS_VALID_DATABASE);
+	assert(!ISVALID(last_item));
 
 	/* init the parse */
 	sts = parse_init_open(&parse, path);
@@ -495,7 +512,7 @@ static int read_database_internal(const char *path)
 				break;
 
 			default:
-				sts = parse_make_syntax_error(smack_extra_after_access,parse.lino);
+				sts = parse_make_syntax_error(smack_extra_after_access, parse.lino);
 			}
 		}
 	}
@@ -506,6 +523,10 @@ static int read_database_internal(const char *path)
 	assert(sts <= 0);
 	if (sts)
 		return sts;
+
+	/* error if no key */
+	if (!ISVALID(last_item))
+		return parse_make_syntax_error(smack_file_empty, parse.lino);
 
 	/* allocate the codas arrays and the strings array of string's $-indexes */
 	coda_reference = calloc(object_count, sizeof * coda_reference);
@@ -524,7 +545,7 @@ static int read_database_internal(const char *path)
 		keyi = $(keyi)[item_previous];
 	}
 
-	assert(HAS_VALID_DATABASE);
+	assert(ISVALID(last_item));
 	return 0;
 }
 
@@ -543,42 +564,24 @@ static int read_database(const char *path)
 
 	clear_database();
 
-	assert(!HAS_VALID_DATABASE);
+	assert(!ISVALID(last_item));
 
 	result = read_database_internal(path);
 	if (result)
 		clear_database();
 
-	assert(HAS_VALID_DATABASE || result);
+	assert(ISVALID(last_item) || result);
 
 	return result;
 }
 
 #if ALLOWCOMPILE
 /*
- * Definitions for compiled binary file
- */
-enum file_header {
-	header_magic_tag_1   = 0,          /* index of magic tag 1 */
-	header_magic_tag_2   = 1,          /* index of magic tag 2 */
-	header_magic_version = 2,          /* index of magic version */
-	header_data_count    = 3,          /* index of count of data */
-	header_hash_count    = 4,          /* index of count of hash */
-	header_item_count    = 5,          /* index of count of items */
-	header_object_count  = 6,          /* index of count of objects */
-	header_last_item     = 7,          /* index of last item $-index */
-	header_size          = 8,          /* size of the header */
-	HEADER_MAGIC_TAG_1   = 0x75616d73, /* 'smau' */
-	HEADER_MAGIC_TAG_2   = 0x2e68636e, /* 'nch.' */
-	HEADER_MAGIC_VERSION = 0x0a312e73  /* 's.1\n' */
-};
-
-/*
  * Saves the database to the binary compiled database 
  * of 'path' filename.
  *
  * Requires: path != NULL
- *           && HAS_VALID_DATABASE
+ *           && ISVALID(last_item)
  *
  * Returns 0 in case of success or a negative error code otherwise.
  */
@@ -590,7 +593,7 @@ static int save_compiled_database(const char *path)
 
 	/* checks */
 	assert(path);
-	assert(HAS_VALID_DATABASE);
+	assert(ISVALID(last_item));
 
 	/* init the header data */
 	head[header_magic_tag_1] = HEADER_MAGIC_TAG_1;
@@ -636,7 +639,7 @@ static int save_compiled_database(const char *path)
  * CAUTION, in case of error the returned data state is undefined.
  *
  * Requires: path != NULL
- *           && !HAS_VALID_DATABASE
+ *           && !ISVALID(last_item)
  *
  * Returns 0 in case of success or a negative error code in case of error.
  */
@@ -648,7 +651,7 @@ static int read_compiled_database_internal(const char *path)
 
 	/* checks */
 	assert(path);
-	assert(!HAS_VALID_DATABASE);
+	assert(!ISVALID(last_item));
 
 	/* open the file for read */
 	file = open(path, O_RDONLY);
@@ -730,20 +733,22 @@ static int read_compiled_database(const char *path)
 
 	clear_database();
 
-	assert(!HAS_VALID_DATABASE);
+	assert(!ISVALID(last_item));
 
 	result = read_compiled_database_internal(path);
 	if (result)
 		clear_database();
 
-	assert(HAS_VALID_DATABASE || result);
+	assert(ISVALID(last_item) || result);
 
 	return result;
 }
+#endif
 
 /* see comment in smaunch-smack.h */
 int smaunch_smack_load_database(const char *path)
 {
+#if ALLOWCOMPILE
 	char cpldb[PATH_MAX];
 	struct stat sdb, scpl;
 	int result;
@@ -775,21 +780,17 @@ int smaunch_smack_load_database(const char *path)
 		save_compiled_database(cpldb);
 
 	return result;
-}
 #else
-/* see comment in smaunch-smack.h */
-int smaunch_smack_load_database(const char *path)
-{
 	assert(path != NULL);
 
 	return read_database(path);
-}
 #endif
+}
 
 /* see comment in smaunch-smack.h */
 int smaunch_smack_has_database()
 {
-	return HAS_VALID_DATABASE;
+	return ISVALID(last_item);
 }
 
 /* see comment in smaunch-smack.h */
