@@ -13,12 +13,12 @@ static int char2coda(char c)
 	int r;
 
 	switch(lower_case_of(c)) {
-	case 'a': r = smack_coda_a; break;
-	case 'l': r = smack_coda_l; break;
-	case 'r': r = smack_coda_r; break;
-	case 't': r = smack_coda_t; break;
-	case 'w': r = smack_coda_w; break;
-	case 'x': r = smack_coda_x; break;
+	case 'a': r = smack_coda_append; break;
+	case 'l': r = smack_coda_lock; break;
+	case 'r': r = smack_coda_read; break;
+	case 't': r = smack_coda_transmute; break;
+	case 'w': r = smack_coda_write; break;
+	case 'x': r = smack_coda_execute; break;
 	default: r = 0; break;
 	}
 
@@ -70,9 +70,9 @@ int smack_coda_string_length(smack_coda coda)
 
 	assert(smack_coda_is_valid(coda));
 
-	if (!coda) {
+	if (!coda)
 		r = 1;
-	} else {
+	else {
 		r = 0;
 		c = smack_coda_bits_count;
 		while (c) {
@@ -127,7 +127,7 @@ smack_coda smack_coda_normalize(smack_coda coda)
 
 	assert(smack_coda_is_valid(coda));
 
-	result = (coda & smack_coda_w) ? (coda | smack_coda_l) : coda;
+	result = (coda & smack_coda_write) ? (coda | smack_coda_lock) : coda;
 
 	assert(smack_coda_is_normal(result));
 	return result;
@@ -138,6 +138,6 @@ int smack_coda_is_normal(smack_coda coda)
 {
 	assert(smack_coda_is_valid(coda));
 
-	return (coda & smack_coda_w) ? ((coda & smack_coda_l) != 0) : 1;
+	return (coda & (smack_coda_write | smack_coda_lock)) != smack_coda_write;
 }
 

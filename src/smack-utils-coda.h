@@ -9,12 +9,12 @@ typedef int smack_coda;
  * Constants used for smack_coda
  */
 enum {
-	smack_coda_l = 1,				/* lock permission bit */
-	smack_coda_t = 2,				/* transmute permission bit */
-	smack_coda_a = 4,				/* append permission bit */
-	smack_coda_x = 8,				/* execute permission bit */
-	smack_coda_w = 16,				/* write permission bit */
-	smack_coda_r = 32,				/* read permission bit */
+	smack_coda_lock = 1,			/* lock permission bit */
+	smack_coda_transmute = 2,		/* transmute permission bit */
+	smack_coda_append = 4,			/* append permission bit */
+	smack_coda_execute = 8,			/* execute permission bit */
+	smack_coda_write = 16,			/* write permission bit */
+	smack_coda_read = 32,			/* read permission bit */
 	smack_coda_bits_count = 6,		/* count of bits for permissions */
 	smack_coda_bits_mask = 0x3f		/* mask of the permissions bits */
 };
