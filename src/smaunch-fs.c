@@ -8,8 +8,10 @@
 #include <limits.h>
 #include <string.h>
 #include <sched.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/mount.h>
+#include <sys/uio.h>
 
 #include "smaunch-fs.h"
 #include "parse.h"
@@ -21,120 +23,261 @@
 
 #if SIMULATION
 #include <stdio.h>
+
+#define mflgr(x,v,o) (((x)==(v)) ? #v : (o))
+#define mflg(x)     mflgr(x,MS_BIND,\
+					mflgr(x,MS_MOVE,\
+					mflgr(x,MS_SLAVE|MS_REC,\
+					mflgr(x,MS_REMOUNT|MS_RDONLY,\
+					mflgr(x,MS_BIND|MS_REMOUNT|MS_RDONLY,\
+					mflgr(x,0,\
+					"???"))))))
 #define unshare(x)           (printf("unshare(%s)\n",#x), 0)
-#define mount(f,t,k,c,x)     (printf("mount(%s, %s, %s, %s, %s)\n",f,t,k,#c,#x), 0)
+#define mount(f,t,k,c,x)     (printf("mount(%s, %s, %s, %s, %s)\n",f,t,k,mflg(c),#x), 0)
 #define mkdir(d,t)           (printf("mkdir(%s, %s)\n",d,#t), 0)
 #endif
 
-#define INVALID (-1)
-#define ISVALID(x) ((x)>=0)
-#define $(offset) (data.data + (offset))
+/* for compilation of databases */
+#if !defined(ALLOWCOMPILE)
+#define ALLOWCOMPILE 1
+#endif
 
+#if !defined(PACKPATH)
+#define PACKPATH 1
+#endif
+
+/*
+ * Macro for use of buffers
+ */
+#define INVALID    (-1)						/* invalid $-index value */
+#define ISVALID(x) ((x)>=0)					/* test if a $-index is valid */
+#define $(offset)  (data.data + (offset))	/* base array in data at $-index */
+
+/*
+ * Definition of keys
+ */
 enum key_offsets {
-	key_string = 0,
-	key_rule = 1,
-	key_previous = 2,
-	key_size = 3
+	key_string = 0,		/* $-index of the key-string */
+	key_rules = 1,		/* $-index of the first rule */
+	key_previous = 2,	/* $-index of the previous key */
+	key_size = 3		/* size of the keys */
 };
 
+/*
+ * Definition of the dirs
+ */
 enum dir_offsets {
-	dir_string = 0,     /* the name */
-	dir_parent = 1,     /* the parent */
-	dir_child = 2,      /* first child if any */
+	dir_string = 0,     /* $-index of the dir-string */
+	dir_parent = 1,     /* $-index of the parent dir */
+	dir_child = 2,      /* $-index of the first child dir if any */
 	dir_depth = 3,      /* depth in the tree */
-	dir_next = 4,       /* next child */
-	dir_action = 5,     /* state for context */
-	dir_size = 6
+	dir_next = 4,       /* $-index of the next child dir within the parent */
+	dir_action = 5,     /* state for context (see enum actions) */
+	dir_size = 6		/* size of the dirs */
 };
 
+/*
+ * Definition of the rules
+ */
 enum rule_offsets {
-	rule_dir = 0,
-	rule_kind = 1,
-	rule_next = 2,
-	rule_size = 3
+	rule_dir = 0,		/* $-index of the dir */
+	rule_kind = 1,		/* kind of the rule (see enum mkinds) */
+	rule_next = 2,		/* $-index of the next rule of the key */
+	rule_size = 3		/* size of the rules */
 };
 
+/*
+ * Definitions of compared positions of two directories
+ */
 enum positions {
-	unrelated = 0,
-	parent = 1, 
-	child = 2, 
-	equals = 3
+	unrelated = 0,	/* dirs are different and no one is parent of the other */
+	parent = 1,		/* one dir is parent of the other */
+	child = 2, 		/* one dir is child of the other */
+	equals = 3		/* the dirs are equals */
 };
 
-enum mkinds { /* order cares */
-	none = 0,
-	read_only = 1,
-	read_write = 2
+/*
+ * Definition of the kind of the rule
+ * The values have to be in numerical order in a such way that
+ * most restrictive permissions have lower values.
+ */
+enum mkinds {
+	none = 0,			/* remove the directory content */
+	read_only = 1,		/* set read only access to the directory */
+	read_write = 2		/* set read write access to the directory */
 };
 
+/*
+ * Defintion of the actions to perform to the
+ * directory tree deduced from applying rules
+ *
+ * CAUTION! THE ALGORITHM (see function prepare_dir) EXPECT THAT:
+ *    mount_none       == mount_none + none
+ *    mount_read_only  == mount_none + read_only
+ *    mount_read_write == mount_none + read_write
+ */
 enum actions {
-	nothing = 0,
-	should_exist,
-	mount_none,
-	mount_read_only,
-	mount_read_write
+	nothing = 0,		/* no action */
+	should_exist,		/* should exist */
+	mount_none,			/* content removed */
+	mount_read_only,	/* content set read-only */
+	mount_read_write	/* content set read/write */
 };
 
+/* buffer for all data */
 static struct buffer data = { 0, 0, 0 };
+
+/* $-index of the last defined key */
 static int last_key = INVALID;
+
+/* $-index of the root directory */
 static int root_dir = INVALID;
-static int default_key = INVALID;
+
+/* current substitutions */
 static const char const *(*substitutions)[2] = 0;
+
+/* current substitutions count */
 static int substitutions_count = 0;
+
+/* flag indicating if unshared is made */
 static int unshared = 0;
 
+/* scratch mount point */
+static const char *scratch_mount_point = "/tmp";
 
+/* the mode for creating directories (assume that umask is set) */
+#define MKDIR_MODE   0755
+
+/* length of the mount dir path */
+#define MOUNT_PATH_MAX   PATH_MAX
+
+/*
+ * Definition of the mountdirs structure used for applying rules recusivly
+ */
+struct mountdirs {
+	struct {
+		int length;		/* length of the path */
+		char *path;		/* the path points to a string beeing a "char[MOUNT_PATH_MAX]" array */
+	}
+		origin, 		/* the data for the origin path */
+		scratch;		/* the data for the scratch path */
+};
+
+/* a needed predeclaration */
+static int apply_sub_mount(int diri, enum actions action, const struct mountdirs *mdirs);
+
+#if ALLOWCOMPILE
+/*
+ * Definitions for compiled binary file
+ */
+enum file_header {
+	header_magic_tag_1   = 0,          /* index of magic tag 1 */
+	header_magic_tag_2   = 1,          /* index of magic tag 2 */
+	header_magic_version = 2,          /* index of magic version */
+	header_data_count    = 3,          /* index of count of data */
+	header_last_key      = 4,          /* index of last key $-index */
+	header_root_dir      = 5,          /* index of root dir $-index */
+	header_size          = 6,          /* size of the header */
+	HEADER_MAGIC_TAG_1   = 0x75616d73, /* 'smau' */
+	HEADER_MAGIC_TAG_2   = 0x2e68636e, /* 'nch.' */
+	HEADER_MAGIC_VERSION = 0x0a312e66  /* 'f.1\n' */
+};
+#endif
+
+/*
+ * Clears the database
+ */
 static void clear_all()
 {
 	last_key = INVALID;
 	root_dir = INVALID;
-	default_key = INVALID;
 	buffer_reinit(&data);
 }
 
+/*
+ * Get the $-index of the key of name 'key'.
+ * If the 'key' doesn't exist, it is created
+ * if 'create' isn't nul.
+ *
+ * Requires: key != NULL
+ *
+ * Returns the $-index (>= 0) of the 'key' in
+ * case of success or if it failed an negative error code value.
+ * Possible errors:
+ *   -ENOMEM      memory depletion
+ *   -ENOENT      not found (only if create == 0)
+ */
 static int get_key(const char *key, int create)
 {
 	int result, istr;
 
+	/* search the key */
 	result = last_key;
 	while (ISVALID(result)) {
 		istr = $(result)[key_string];
 		if (0 == strcmp(key, (char*)($(istr))))
-			return result;
+			return result; /* key found */
 		result = $(result)[key_previous];
 	}
 
+	/* fail if create not set */
 	if (!create)
 		return -ENOENT;
 
+	/* allocates the new key and its string */
+	result = buffer_alloc(&data, key_size);
+	if (result < 0)
+		return result;
 	istr = buffer_strdup(&data, key);
 	if (istr < 0)
 		return istr;
 
-	result = buffer_alloc(&data, key_size);
-	if (result < 0)
-		return result;
-
+	/* init the new key */
 	$(result)[key_string] = istr;
-	$(result)[key_rule] = INVALID;
+	$(result)[key_rules] = INVALID;
 	$(result)[key_previous] = last_key;
 	last_key = result;
+
 	return result;
 }
 
+/*
+ * Get the $-index of the dir of 'nparts' subparts 'parts'.
+ * If the dir doesn't exist, it is created if 'create' isn't nul.
+ * For example, for creating the directory "/foo/bar"
+ * you call get_dir({ "foo", "bar" }, 2, 1).
+ *
+ * Requires: nparts >= 0
+ *           && (nparts == 0 || parts != NULL)
+ *
+ * Returns the $-index (>= 0) of the dir in
+ * case of success or if it failed an negative error code value.
+ * Possible errors:
+ *   -ENOMEM      memory depletion
+ *   -ENOENT      not found (only if create == 0)
+ */
 static int get_dir(const char **parts, int nparts, int create)
 {
-	int result, parent, depth, sts, istr;
+	int result, parent, depth, sts, istr, found;
 	const char *name;
 
-	assert(nparts > 0);
+	/* checks */
+	assert(nparts >= 0);
+	assert(nparts == 0 || parts != NULL);
 
+	/* creation of the root directory if needed */
 	if (!ISVALID(root_dir)) {
+
+		/* fail if create not set */
 		if (!create)
 			return -ENOENT;
+
+		/* allocates the root directory */
 		sts = buffer_alloc(&data, dir_size);
 		if (sts < 0)
 			return sts;
+
+		/* init the root directory */
 		root_dir = sts;
 		$(sts)[dir_string] = INVALID;
 		$(sts)[dir_parent] = INVALID;
@@ -144,22 +287,42 @@ static int get_dir(const char **parts, int nparts, int create)
 		$(sts)[dir_action] = nothing;
 	}
 
+	/* search the directory, starting from root */
 	depth = 0;
 	result = root_dir;
 	while (depth < nparts) {
+		assert(ISVALID(result));
+		assert($(result)[dir_depth] == depth);
+
+		/* search the subpart within the current dir */
 		name = parts[depth++];
 		parent = result;
 		result = $(parent)[dir_child];
-		for (;;) {
-			if (!ISVALID(result)) {
-				if (!create)
-					return -ENOENT;
-				istr = buffer_strdup(&data, name);
-				if (istr < 0)
-					return istr;
+		found = 0;
+		while (!found) {
+			if (ISVALID(result)) {
+				/* valid entry, test if it is the one searched? */
+				istr = $(result)[dir_string];
+				if (0 == strcmp(name, (char*)($(istr)))) {
+					/* yes, go deepest */
+					found = 1;
+				} else {
+					/* no, iterate on next entries */
+					result = $(result)[dir_next];
+				}
+			} else if (!create) {
+				/* fail if create not set */
+				return -ENOENT;
+			} else {
+				/* allocates the directory and its name */
 				result = buffer_alloc(&data, dir_size);
 				if (result < 0)
 					return result;
+				istr = buffer_strdup(&data, name);
+				if (istr < 0)
+					return istr;
+
+				/* init the directory */
 				$(result)[dir_string] = istr;
 				$(result)[dir_parent] = parent;
 				$(result)[dir_child] = INVALID;
@@ -167,61 +330,47 @@ static int get_dir(const char **parts, int nparts, int create)
 				$(result)[dir_next] = $(parent)[dir_child];
 				$(result)[dir_action] = nothing;
 				$(parent)[dir_child] = result;
-				break;
-			} else {
-				istr = $(result)[dir_string];
-				if (0 == strcmp(name, (char*)($(istr))))
-					break;
-				result = $(result)[dir_next];
+				found = 1;
 			}
 		}
+		assert(ISVALID(result));
+		assert($(result)[dir_depth] == depth);
+		assert($(result)[dir_parent] == parent);
+		assert(0 == strcmp(name, (char*)($($(result)[dir_string]))));
 	}
-
+	assert(ISVALID(result));
+	assert($(result)[dir_depth] == nparts);
 	return result;
 }
 
-static int split_path(char *path, const char **parts, int nparts)
+#if PACKPATH
+/*
+ * Packs the 'nparts' of 'parts'. It means that it
+ * removes parts "", ".", ".." in the usual way.
+ *
+ * Returns the count of parts resulting.
+ */
+static int pack_path(const char **parts, int nparts)
 {
-	char *iter;
-	int n, read, write;
+	int read, write;
 
-	/* split */
-	n = 0;
-	iter = path;
-	while (*iter) {
-		while(*iter && *iter=='/') iter++;
-		if (*iter) {
-			if (n == nparts)
-				return -E2BIG;
-			parts[n++] = iter++;
-			while(*iter && *iter!='/') iter++;
-			if (*iter)
-				*iter++ = 0;
-		}
-	}
-
-	/* pack */
 	read = 0;
 	write = 0;
-	while (read < n) {
+	while (read < nparts) {
 		switch (parts[read][0]) {
-		case 0: 
+		case 0:
+			/* empty part, remove it */
 			break;
 		case '.':
-			switch (parts[read][1]) {
-			case 0:
+			if (!parts[read][1]) {
+				/* ".", remove it */
 				break;
-			case '.':
-				if (!parts[read][2]) {
-					if (write)
-						write--;
-					break;
-				}
-			default:
-				parts[write++] = parts[read];
+			} else if (parts[read][1] == '.' && !parts[read][2]) {
+				/* "..", try to go to the parent except at root */
+				if (write)
+					write--;
 				break;
 			}
-			break;
 		default:
 			parts[write++] = parts[read];
 			break;
@@ -231,29 +380,91 @@ static int split_path(char *path, const char **parts, int nparts)
 
 	return write;
 }
+#endif
 
-static int get_dir_split(char *path, int create)
+/*
+ * Split the 'path' into its 'parts' where 'npartsmax' is the maximum
+ * possible parts. There is no copy what means the the string 'path'
+ * is used to store the parts values. Pointers of 'parts' are pointing
+ * to sub parts of 'path'.
+ *
+ * CAUTION: 'path' is modified in place and must remain unchanged
+ * while the returned 'parts' content is used.
+ *
+ * Requires: path != NULL
+ *           && parts != NULL
+ *           && npartsmax >= 0
+ *
+ * Returns a positive or nul value in case of success indicating the 
+ * count of parts computed into 'parts'.
+ * In case of failure it returns the negative value -E2BIG indicating
+ * that the count of parts computed will exceed 'npartsmax'.
+ */
+static int split_path(char *path, const char **parts, int npartsmax)
 {
-	int count;
-	const char *parts[64];
+	char *iter;
+	int nparts;
 
-	count = split_path(path, parts, sizeof parts / sizeof * parts);
-	return count < 0 ? count : get_dir(parts, count, create);
+	/* checks */
+	assert(path);
+	assert(parts);
+	assert(npartsmax >= 0);
+
+	nparts = 0;
+	iter = path;
+	while (*iter) {
+		/* skip any starting / */
+		while(*iter && *iter=='/') iter++;
+		if (*iter) {
+			/* check count */
+			if (nparts == npartsmax)
+				return -E2BIG;
+			/* records the pointer */
+			parts[nparts++] = iter++;
+			/* searchs the end of the part */
+			while(*iter && *iter!='/') iter++;
+			/* set the terminating nul if needed */
+			if (*iter)
+				*iter++ = 0;
+		}
+	}
+
+#if PACKPATH
+	return pack_path(parts, nparts);
+#else
+	return nparts;
+#endif
 }
 
+/*
+ * Compare the position of the dirs of $-index 'dir1' and 'dir2'.
+ *
+ * Requires: ISVALID(dir1)
+ *           && ISVALID(dir2)
+ *
+ * Returns:
+ *    equals      if 'dir1' == 'dir2'
+ *    parent      if 'dir1' is parent of 'dir2'
+ *    child       if 'dir1' is child of 'dir2'
+ *    unrelated   otherwise
+ */
 static enum positions cmpdir(int dir1, int dir2)
 {
 	int d1, d2;
 
-	assert(dir1 >= 0);
-	assert(dir2 >= 0);
+	/* checks */
+	assert(ISVALID(dir1));
+	assert(ISVALID(dir2));
 
+	/* equallity? */
 	if (dir1 == dir2)
 		return equals;
 
+	/* get depths */
 	d1 = $(dir1)[dir_depth];
 	d2 = $(dir2)[dir_depth];
 	if (d1 > d2) {
+		/* check if the (d1-d2)th parent of dir1 is dir2 */
 		while (d1 > d2) {
 			dir1 = $(dir1)[dir_parent];
 			d1--;
@@ -261,6 +472,7 @@ static enum positions cmpdir(int dir1, int dir2)
 		if (dir1 == dir2)
 			return child;
 	} else {
+		/* check if the (d2-d1)th parent of dir2 is dir1 */
 		while (d1 < d2) {
 			dir2 = $(dir2)[dir_parent];
 			d2--;
@@ -268,90 +480,36 @@ static enum positions cmpdir(int dir1, int dir2)
 		if (dir1 == dir2)
 			return parent;
 	}
+	/* otherwise */
 	return unrelated;
 }
 
-static int get_dir_path_rec(int diri, char *buffer, int length, int stopi)
-{
-	const char *name;
-	int i, pari, result;
-
-	assert(ISVALID(diri));
-	assert(ISVALID(stopi));
-
-	/* the root case */
-	if (diri == root_dir) {
-		if (length)
-			buffer[0] = '/';
-		return 1;
-	}
-
-	assert(ISVALID($(diri)[dir_string]));
-	assert(ISVALID($(diri)[dir_parent]));
-
-	/* the stop case */
-	if (diri == stopi)
-		return 0;
-
-	/* compute the parent */
-	pari = $(diri)[dir_parent];
-	result = get_dir_path_rec(pari, buffer, length, stopi);
-
-	/* get the substituted name */
-	name = (const char *)$($(diri)[dir_string]);
-	if (name[0] == '%') {
-		i = substitutions_count;
-		while (i) {
-			if (0 == strcmp(name, substitutions[--i][0])) {
-				name = substitutions[i][1];
-				i = 0;
-			}
-		}
-	}
-
-	/* write now */
-	if (pari != root_dir) {
-		if (result < length)
-			buffer[result] = '/';
-		result++;
-	}
-	for (i = 0 ; name[i] ; i++) {
-		if (result < length)
-			buffer[result] = name[i];
-		result++;
-	}
-
-	return result;
-}
-
-static int get_dir_path(int diri, char *buffer, int length, int stopi)
-{
-	int result;
-
-	assert(ISVALID(diri));
-	assert(ISVALID(stopi));
-	assert(diri == stopi || cmpdir(diri, stopi) == child);
-	assert(buffer || length <= 0);
-
-	result = get_dir_path_rec(diri, buffer, length, stopi);
-	if (result < length)
-		buffer[result] = 0;
-
-	return result;
-}
-
+/*
+ * Adds to the key of $-index 'keyi' the rule stating
+ * that the dir of $-index 'diri' should bo of 'kind'.
+ *
+ * Requires: ISVALID(keyi)
+ *           && ISVALID(diri)
+ *
+ * Returns 0 in case of success or a negative error code
+ * on failure. The only possible error code is -ENOMEM.
+ */
 static int add_rule(int keyi, int diri, enum mkinds kind)
 {
 	int iprvi, nrulei, rulei, stop, waschild;
 
-	assert(keyi >= 0);
-	assert(diri >= 0);
+	/* checks */
+	assert(ISVALID(keyi));
+	assert(ISVALID(diri));
 
 	/* search insertion point */
-	iprvi = keyi + key_rule;
+	/* the rule is inserted before any child rule */
+	/* and after and parent rule */
+	iprvi = keyi + key_rules;
 	waschild = 0;
 	stop = 0;
 	while (!stop) {
+		/* get the next rule $index */
 		nrulei = *$(iprvi);
 		if (!ISVALID(nrulei))
 			stop = 1;
@@ -365,6 +523,8 @@ static int add_rule(int keyi, int diri, enum mkinds kind)
 				iprvi = nrulei + rule_next;
 				break;
 			case equals:
+				/* a rule was already set! strange! */
+				/* lowering the behaviour is the simplest processing way */
 				if (kind < $(nrulei)[rule_kind])
 					$(nrulei)[rule_kind] = kind;
 				return 0;
@@ -378,12 +538,12 @@ static int add_rule(int keyi, int diri, enum mkinds kind)
 		}
 	}
 
-	/* allocation */
+	/* allocates the rule */
 	rulei = buffer_alloc(&data, rule_size);
 	if (rulei < 0)
 		return rulei;
 
-	/* initialisation */
+	/* init the rule */
 	$(rulei)[rule_dir] = diri;
 	$(rulei)[rule_kind] = kind;
 	$(rulei)[rule_next] = nrulei;
@@ -392,114 +552,735 @@ static int add_rule(int keyi, int diri, enum mkinds kind)
 	return 0;
 }
 
-static int compile_database(const char *path)
+/*
+ * Recursively set the 'action' to children subdirs of the dir of $-index 'diri'.
+ *
+ * Requires: ISVALID(diri)
+ */
+static void set_dir_childs_nothing(int diri)
+{
+	int child;
+
+	assert(ISVALID(diri));
+
+	child = $(diri)[dir_child];
+	while(ISVALID(child)) {
+		$(child)[dir_action] = nothing;
+		set_dir_childs_nothing(child);
+		child = $(child)[dir_next];
+	}
+}
+
+/*
+ * Prepare the context such that the dir of $-index 'diri' will be of 'kind'.
+ *
+ * Requires: ISVALID(diri)
+ */
+static void prepare_dir(int diri, enum mkinds kind)
+{
+	enum actions action;
+
+	assert(ISVALID(diri));
+
+#if !defined(NDEBUG)
+	switch(kind) {
+	case none: action = mount_none; break;
+	case read_only: action = mount_read_only; break;
+	case read_write: action = mount_read_write; break;
+	default: assert(0); break;
+	}
+	assert(action == mount_none + kind);
+#else
+	action = mount_none + kind;
+#endif
+	if (action > $(diri)[dir_action]) {
+
+		/* wider privilege */
+		$(diri)[dir_action] = action;
+
+		/* reset children */
+		set_dir_childs_nothing(diri);
+
+		/* force existing path */
+		diri = $(diri)[dir_parent];
+		while (ISVALID(diri) && $(diri)[dir_action] == nothing) {
+			$(diri)[dir_action] = should_exist;
+			diri = $(diri)[dir_parent];
+		}
+	}
+}
+
+/*
+ * Prepare the context according to the rules of the key of $-index 'keyi'.
+ *
+ * Requires: ISVALID(keyi)
+ */
+static void prepare_key(int keyi)
+{
+	int rulei;
+
+	assert(ISVALID(keyi));
+
+	rulei = $(keyi)[key_rules];
+	while (ISVALID(rulei)) {
+		prepare_dir($(rulei)[rule_dir], $(rulei)[rule_kind]);
+		rulei = $(rulei)[rule_next];
+	}
+}
+
+/*
+ * Get the string value of the string of $-index 'stri'.
+ * If a substitution applies to the value, the substituted
+ * string is returned in place of the string.
+ *
+ * Requires: ISVALID(stri)
+ *
+ * Returns a pointer to the string or the substituted string
+ * in case of substition.
+ */
+static const char *get_string_subst(int stri)
+{
+	int i;
+	const char *result;
+
+	assert(ISVALID(stri));
+
+	result = (const char *)$(stri);
+	if (result[0] == '%') {
+		i = substitutions_count;
+		while (i)
+			if (0 == strcmp(result, substitutions[--i][0]))
+				return substitutions[i][1];
+	}
+	return result;
+}
+
+/*
+ * Computes (recursively) the path of the directory of $-index 'diri'
+ * into the 'buffer' of 'length'. 
+ *
+ * CAUTION:
+ *  - No terminating nul will be added at the end of the computed path.
+ *  - The root dir case for 'diri' is not well handled
+ *  - DON'T CALL THAT FUNCTION USE INSTEED get_dir_path
+ *
+ * Applies the current substitutions.
+ *
+ * Requires: ISVALID(diri)
+ *           && diri != root_dir
+ *           && (buffer || length <= 0)
+ * 
+ * Returns the positive or null number indicating the count of characters
+ * written to 'buffer' or a negative number (-ENAMETOOLONG) if the resulting
+ * length is greater than 'length'.
+ */
+static int get_dir_path_rec(int diri, char *buffer, int length)
+{
+	const char *name;
+	int i, pari, result;
+
+	/* checks */
+	assert(ISVALID(diri));
+	assert(diri != root_dir);
+	assert(buffer || length <= 0);
+
+	/* compute the parent */
+	assert(ISVALID($(diri)[dir_parent]));
+	pari = $(diri)[dir_parent];
+	if (pari == root_dir)
+		result = 0;
+	else {
+		result = get_dir_path_rec(pari, buffer, length);
+		if (result < 0)
+			return result;
+	}
+
+	/* get the name substituted if needed */
+	assert(ISVALID($(diri)[dir_string]));
+	name = get_string_subst($(diri)[dir_string]);
+
+	/* write now */
+	if (result >= length)
+		return -ENAMETOOLONG;
+	buffer[result++] = '/';
+	for (i = 0 ; name[i] ; i++) {
+		if (result >= length)
+			return -ENAMETOOLONG;
+		buffer[result++] = name[i];
+	}
+
+	return result;
+}
+
+/*
+ * Computes the path of the directory of $-index 'diri'
+ * into the 'buffer' of 'length'. The computed path will be 
+ * terminated with a zero.
+ *
+ * Applies the current substitutions.
+ *
+ * Requires: ISVALID(diri)
+ *           && (buffer || length <= 0)
+ * 
+ * Returns the positive or null number indicating the count of characters
+ * written to 'buffer' (excluding the terminating nul) or a negative number 
+ * (-ENAMETOOLONG) if the resulting length is greater than 'length'.
+ */
+static int get_dir_path(int diri, char *buffer, int length)
+{
+	int len;
+
+	/* checks */
+	assert(ISVALID(diri));
+	assert(buffer || length <= 0);
+
+	if (diri == root_dir) {
+		/* case of the root dir */
+		if (length < 2)
+			return -ENAMETOOLONG;
+		buffer[0] = '/';
+		buffer[1] = 0;
+		len = 1;
+	} else {
+		/* other cases */
+		len = get_dir_path_rec(diri, buffer, length-1);
+		if (len < 0)
+			return len;
+		assert(len < length);
+		buffer[len] = 0;
+	}
+
+	return len;
+}
+
+/*
+ * Applies the rules to the subdirectories of the dir of $-index 'diri'.
+ * This function is called into a scratch started hierarchy where 'refact'
+ * is the action of reference from an already scratch mounted parent.
+ * 'mdirs' are the current origin and scratch directories for 'diri'.
+ *
+ * Requires: ISVALID(diri)
+ *           && mdirs != NULL
+ *           && refact != nothing
+ *           && refact != should_exist
+ *
+ * Returns 0 in case of success or a negative error code if failed.
+ */
+static int apply_sub_dirs(int diri, enum actions refact, const struct mountdirs *mdirs)
+{
+	struct mountdirs mountdirs;
+	int result, action, length;
+	const char *string;
+	char *borg, *bscr;
+
+	/* checks */
+	assert(ISVALID(diri));
+	assert(mdirs);
+	assert(refact != nothing);
+	assert(refact != should_exist);
+
+	/* get the first child dir */
+	diri = $(diri)[dir_child];
+	if (ISVALID(diri)) {
+
+		/* init iteration data */
+		mountdirs.origin.path = mdirs->origin.path;
+		borg = &mountdirs.origin.path[mdirs->origin.length];
+		mountdirs.scratch.path = mdirs->scratch.path;
+		bscr = &mountdirs.scratch.path[mdirs->scratch.length];
+		*borg++ = '/';
+		*bscr++ = '/';
+
+		/* iterate on children dirs */
+		do {
+			/* get action to perform */
+			action = $(diri)[dir_action];
+			if (action != nothing) {
+
+				/* get the dir name and its length (with '/' ahead counted) */
+				assert(ISVALID($(diri)[dir_string]));
+				string = get_string_subst($(diri)[dir_string]);
+				length = (int)strlen(string) + 1;
+
+				/* set the resulting length and check it */
+				mountdirs.origin.length = mdirs->origin.length + length;
+				mountdirs.scratch.length = mdirs->scratch.length + length;
+				if (mountdirs.origin.length >= MOUNT_PATH_MAX || mountdirs.scratch.length >= MOUNT_PATH_MAX)
+					return -ENAMETOOLONG;
+
+				/* make the paths (length includes the terminating zero) */
+				memcpy(borg, string, length);
+				memcpy(bscr, string, length);
+
+				/* ensure existing scratch dir */
+				/* this way of processing avoid the stat system call but doesn't ensure that scratch is a directory */
+				result = mkdir(mountdirs.scratch.path, MKDIR_MODE);
+				if (result < 0 && errno != EEXIST)
+					return -errno;
+
+				if (action == should_exist || action == refact) {
+					/* nothing special to mount, apply to sub dirs */
+					result = apply_sub_dirs(diri, refact, &mountdirs);
+				} else {
+					/* mount now */
+					result = apply_sub_mount(diri, action, &mountdirs);
+				}
+				if (result)
+					return result;
+			}
+			/* next */
+			diri = $(diri)[dir_next];
+		} while (ISVALID(diri));
+
+		/* restore previous mount paths */
+		*--borg = 0;
+		*--bscr = 0;
+	}
+	return 0;
+}
+
+/*
+ * Mounts the dir of $-index 'diri' according to the rules of 'action'
+ * and apply the rules to its sub directories.
+ * This function is called into a scratch started hierarchy.
+ * 'mdirs' are the current origin and scratch directories for 'diri'.
+ *
+ * Note: 'action' is the same that $(diri)[dir_action] but is given as
+ * parameter because is available by the caller.
+ *
+ * Requires: ISVALID(diri)
+ *           && mdirs != NULL
+ *           && action == $(diri)[dir_action]
+ *
+ * Returns 0 in case of success or a negative error code if failed.
+ */
+static int apply_sub_mount(int diri, enum actions action, const struct mountdirs *mdirs)
+{
+	int result;
+	unsigned long bind;
+
+	/* checks */
+	assert(ISVALID(diri));
+	assert(mdirs);
+	assert(action == $(diri)[dir_action]);
+
+	/* set the bind flag */
+	bind = action != mount_none ? MS_BIND : 0;
+
+	/* apply the mount */
+	result = mount(mdirs->origin.path, mdirs->scratch.path, "ramfs", bind, 0);
+	if (result < 0)
+		return -errno;
+
+	/* apply children mounts */
+	result = apply_sub_dirs(diri, action, mdirs);
+	if (result)
+		return result;
+
+	/* remount read only if needed */
+	if (action != mount_read_write) {
+		result = mount("", mdirs->scratch.path, "", bind|MS_REMOUNT|MS_RDONLY, 0);
+		if (result < 0)
+			return -errno;
+	}
+
+	return 0;
+}
+
+/*
+ * Mounts the dir of $-index 'diri' according to the rules of 'action'
+ * and apply the rules to its sub directories.
+ * This function starts the scratch hierarchy and at end move it 
+ * to its destination.
+ *
+ * Requires: ISVALID(diri)
+ *           && action == $(diri)[dir_action]
+ *
+ * Returns 0 in case of success or a negative error code if failed.
+ */
+static int apply_main_mount(int diri)
+{
+	char scratch[MOUNT_PATH_MAX], origin[MOUNT_PATH_MAX];
+	struct mountdirs mountdirs;
+	int result;
+
+	/* checks */
+	assert(ISVALID(diri));
+
+	/* lazy unsharing namespace on need */
+	if (!unshared) {
+		/* unshare */
+		result = unshare(CLONE_NEWNS);
+		if (result < 0)
+			return -errno;
+		/* remount all recursively as slave */
+		result = mount("", "/", "", MS_SLAVE|MS_REC, 0);
+		if (result < 0)
+			return -errno;
+		/* set unshared */
+		unshared = 1;
+	}
+
+	/* get the reference filesystem mount point */
+	result = get_dir_path(diri, origin, sizeof origin);
+	if (result < 0)
+		return result;
+
+	mountdirs.origin.length = result;
+	mountdirs.origin.path = origin;
+
+	/* get the scratch mount point */
+	result = strlen(scratch_mount_point);
+	assert(MOUNT_PATH_MAX > result);
+	memcpy(scratch, scratch_mount_point, result + 1);
+
+	mountdirs.scratch.length = result;
+	mountdirs.scratch.path = scratch;
+
+	/* mount the directory now */
+	result = apply_sub_mount(diri, $(diri)[dir_action], &mountdirs);
+	if (result)
+		return result;
+
+	/* move the hierachy now */
+	result = mount(scratch, origin, "", MS_MOVE, 0);
+	return result;
+}
+
+/*
+ * Apply the rules to the sub directories of the dir of $-index 'diri'.
+ *
+ * Requires: ISVALID(diri)
+ *
+ * Returns 0 in case of success or a negative error code if failed.
+ */
+static int apply_main_dirs(int diri)
+{
+	int result;
+
+	/* checks */
+	assert(ISVALID(diri));
+
+	/* get the first child and iterate on children dirs */
+	diri = $(diri)[dir_child];
+	while (ISVALID(diri)) {
+		switch ($(diri)[dir_action]) {
+
+		case nothing:
+			/* out of mounting scope dir, dont explore children */
+			break;
+
+		case mount_read_write:
+			/* read-write should be the default, process as if should-exist */
+
+		case should_exist:
+			/* if it should exist then it is required by some remounted subdir */
+			result = apply_main_dirs(diri);
+			if (result)
+				return result;
+			break;
+
+		default:
+			/* do the mounting of the dir and its sub dirs */
+			result = apply_main_mount(diri);
+			if (result)
+				return result;
+			break;
+		}
+		/* next child */
+		diri = $(diri)[dir_next];
+	}
+	return 0;
+}
+
+/*
+ * Reads the database of 'path' filename.
+ *
+ * CAUTION, in case of error the returned data state is undefined.
+ *
+ * Requires: path != NULL
+ *           && !ISVALID(last_item)
+ *
+ * Returns 0 in case of success or a negative error code in case of error.
+ */
+static int read_database_internal(const char *path)
 {
 	struct parse parse;
 	int sts, keyi, diri;
 	enum mkinds kind;
+	const char *parts[64];
+
+	/* checks */
+	assert(path);
+	assert(!ISVALID(last_key));
 
 	/* open the file */
 	sts = parse_init_open(&parse, path);
-	if (sts < 0)
+	if (sts)
 		return sts;
 
 	/* parse the file */
-	while(!parse.finished) {
+	keyi = INVALID;
+	while(!parse.finished && !sts) {
 
 		/* read one line */
 		sts = parse_line(&parse);
-		if (sts < 0) {
-			close(parse.file);
-			return sts;
-		}
+		if (!sts) {
+			switch (parse.fieldcount) {
+			case 0:
+				assert(parse.finished);
+				break;
 
-		switch (parse.fieldcount) {
-		case 0:
-			break;
+			case 1: /* defines a key */
+				if (parse.begsp) {
+					sts = parse_make_syntax_error(fs_directory_incomplete, parse.lino);
+				} else {
+					keyi = get_key(parse.fields[0], 1);
+					if (!ISVALID(keyi)) 
+						sts = keyi;
+				}
+				break;
 
-		case 1: /* defines a key */
-			if (parse.begsp) {
-				close(parse.file);
-				return parse_make_syntax_error(fs_directory_incomplete, parse.lino);
-			}
-			sts = get_key(parse.fields[0], 1);
-			if (sts < 0) {
-				close(parse.file);
-				return sts;
-			}
-			keyi = sts;
-			break;
+			case 2: /* defines a directory */
+				if (!parse.begsp) {
+					sts = parse_make_syntax_error(fs_directory_incomplete, parse.lino);
+				} else if (!ISVALID(keyi)) {
+					sts = parse_make_syntax_error(fs_no_key_set, parse.lino);
+				} else if (parse.fields[1][0] != '/') {
+					sts = parse_make_syntax_error(fs_bad_directory, parse.lino);
+				} else {
+					if (0 == strcmp(parse.fields[0], "-")) {
+						kind = none;
+					} else if (0 == strcmp(parse.fields[0], "+r")) {
+						kind = read_only;
+					} else if (0 == strcmp(parse.fields[0], "+rw")) {
+						kind = read_write;
+					} else {
+						sts = parse_make_syntax_error(fs_wrong_permission, parse.lino);
+					}
+					if (!sts) {
+						sts = split_path(parse.fields[1], parts, sizeof parts / sizeof * parts);
+						if (!sts) {
+							sts = parse_make_syntax_error(fs_root_directory, parse.lino);
+						} else if (sts < 0) {
+							sts = parse_make_syntax_error(fs_bad_directory_depth, parse.lino);
+						} else {
+							diri = get_dir(parts, sts, 1);
+							if (!ISVALID(diri)) 
+								sts = diri;
+							else
+								sts = add_rule(keyi, diri, kind);
+						}
+					}
+				}
+				break;
 
-		case 2: /* defines a directory */
-			if (!parse.begsp) {
-				close(parse.file);
-				return parse_make_syntax_error(fs_directory_incomplete, parse.lino);
+			default:
+				sts = parse_make_syntax_error(fs_too_many_fields, parse.lino);
+				break;
 			}
-			if (0 == strcmp(parse.fields[0], "-")) {
-				kind = none;
-			} else if (0 == strcmp(parse.fields[0], "+r")) {
-				kind = read_only;
-			} else if (0 == strcmp(parse.fields[0], "+rw")) {
-				kind = read_write;
-			} else {
-				close(parse.file);
-				return parse_make_syntax_error(fs_wrong_action, parse.lino);
-			}
-			if (parse.fields[1][0] != '/') {
-				close(parse.file);
-				return parse_make_syntax_error(fs_bad_directory, parse.lino);
-			}
-			sts = get_dir_split(parse.fields[1], 1);
-			if (sts < 0) {
-				close(parse.file);
-				if (sts + E2BIG)
-					return sts;
-				return parse_make_syntax_error(fs_bad_directory_depth, parse.lino);
-			}
-			diri = sts;
-			sts = add_rule(keyi, diri, kind);
-			if (sts < 0) {
-				close(parse.file);
-				return sts;
-			}
-			break;
-
-		default:
-			close(parse.file);
-			return parse_make_syntax_error(fs_too_many_fields, parse.lino);
 		}
 	}
 	/* close the file */
 	close(parse.file);
 
-	return 0;
+	/* is empty ? */
+	if (!sts && ISVALID(last_key))
+		sts = parse_make_syntax_error(fs_file_empty, parse.lino);
+
+	return sts;
 }
 
-int smaunch_fs_load_database(const char *path)
+/*
+ * Reads the database of 'path' filename.
+ * The current data are first cleared then the file isread.
+ * In case of error, the data are recleared, leave the state clear. 
+ *
+ * Requires: path != NULL
+ *
+ * Returns 0 in case of success or a negative error code in case of error.
+ */
+static int read_database(const char *path)
 {
 	int result;
 
+	assert(path);
+
 	clear_all();
-	result = compile_database(path);
-	if (result < 0)
+	result = read_database_internal(path);
+	if (result)
 		clear_all();
 
 	return result;
 }
 
-int smaunch_fs_has_database()
+#if ALLOWCOMPILE
+/*
+ * Saves the database to the binary compiled database 
+ * of 'path' filename.
+ *
+ * Requires: path != NULL
+ *           && ISVALID(last_key)
+ *
+ * Returns 0 in case of success or a negative error code otherwise.
+ */
+static int save_compiled_database(const char *path)
 {
-	return ISVALID(last_key);
+	int file, result, head[header_size];
+	struct iovec iovect[2];
+	ssize_t writen;
+
+	/* checks */
+	assert(path);
+	assert(ISVALID(last_key));
+
+	/* init the header data */
+	head[header_magic_tag_1] = HEADER_MAGIC_TAG_1;
+	head[header_magic_tag_2] = HEADER_MAGIC_TAG_2;
+	head[header_magic_version] = HEADER_MAGIC_VERSION;
+	head[header_data_count] = data.count;
+	head[header_last_key] = last_key;
+	head[header_root_dir] = root_dir;
+
+	/* init the iovect data */
+	iovect[0].iov_base = head;
+	iovect[0].iov_len = sizeof head;
+
+	iovect[1].iov_base = data.data;
+	iovect[1].iov_len = data.count * sizeof * data.data;
+
+	/* open the file for write */
+	file = open(path, O_WRONLY|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
+	if (file < 0)
+		return file;
+
+	/* write it now */
+	writen = writev(file, iovect, 2);
+	result = writen < 0 ? -errno : 0;
+	close(file);
+	return result;
 }
 
-int smaunch_fs_has_key(const char *key)
+/*
+ * Reads the binary compiled database of 'path' filename.
+ *
+ * CAUTION, in case of error the returned data state is undefined.
+ *
+ * Requires: path != NULL
+ *           && !ISVALID(last_key)
+ *
+ * Returns 0 in case of success or a negative error code in case of error.
+ */
+static int read_compiled_database_internal(const char *path)
 {
-	assert(key);
-	assert(smaunch_fs_has_database());
+	int file, result, head[header_size];
+	ssize_t readen;
 
-	return ISVALID(get_key(key, 0));
+	/* checks */
+	assert(path);
+	assert(!ISVALID(last_key));
+
+	/* open the file for read */
+	file = open(path, O_RDONLY);
+	if (file < 0)
+		return file;
+
+	/* read the header */
+	readen = read(file, head, sizeof head);
+	if (readen < 0) {
+		result = -errno;
+		close(file);
+		return result;
+	}
+	if (readen < sizeof head) {
+		close(file);
+		return -EINTR;
+	}
+
+	/* check magic data */
+	if (head[header_magic_tag_1] != HEADER_MAGIC_TAG_1
+		|| head[header_magic_tag_2] != HEADER_MAGIC_TAG_2
+		|| head[header_magic_version] != HEADER_MAGIC_VERSION) {
+		close(file);
+		return -EBADF;
+	}
+
+	/* allocate memory */
+	data.data = malloc(head[header_data_count] * sizeof * data.data);
+	if (!data.data) {
+		close(file);
+		return -ENOMEM;
+	}
+
+	/* init data */
+	data.count = head[header_data_count];
+	data.capacity = head[header_data_count];
+	last_key = head[header_last_key];
+	root_dir = head[header_root_dir];
+
+	/* read all now */
+	readen = read(file, data.data, data.count * sizeof * data.data);
+	result = readen < 0 ? -errno : 0;
+	close(file);
+	return result;
 }
 
+/*
+ * Reads the binary compiled database of 'path' filename.
+ *
+ * Requires: path != NULL
+ *
+ * Returns 0 in case of success or a negative error code in case of error.
+ */
+static int read_compiled_database(const char *path)
+{
+	int result;
+
+	assert(path);
+
+	clear_all();
+	result = read_compiled_database_internal(path);
+	if (result)
+		clear_all();
+
+	assert(ISVALID(last_key) || result);
+
+	return result;
+}
+
+/*
+ * Computes in 'buffer' of 'length' the compiled path name of the
+ * database of 'path'.
+ *
+ * Returns 0 in case of success or else -ENAMETOOLONG
+ */
+static int get_compiled_path(const char *path, char *buffer, int length)
+{
+	int i, j;
+
+	i = 0;
+	j = 0;
+	while (path[i])
+		if (path[i++] == '/')
+			j = i;
+
+	if (i + 5 >= length)
+		return -ENAMETOOLONG;
+
+	if (j)
+		memcpy(buffer, path, j);
+	buffer[j] = '.';
+	memcpy(buffer + j + 1, path + j, i - j);
+	buffer[i+1] = '.';
+	buffer[i+2] = 'b';
+	buffer[i+3] = 'i';
+	buffer[i+4] = 'n';
+	buffer[i+5] = 0;
+	return 0;
+}
+#endif
+
+/* see comment in smaunch-fs.h */
 int smaunch_fs_valid_substitutions(const char const *substs[][2], int count)
 {
 	int i;
@@ -516,7 +1297,7 @@ int smaunch_fs_valid_substitutions(const char const *substs[][2], int count)
 			return 0;
 		if (!substs[i][1])
 			return 0;
-		if (!*substs[i][0])
+		if (*substs[i][0] != '%')
 			return 0;
 		if (!*substs[i][1])
 			return 0;
@@ -526,13 +1307,10 @@ int smaunch_fs_valid_substitutions(const char const *substs[][2], int count)
 			return 0;
 	}
 
-	for(i = 0 ; i < count ; i+=2)
-		if (*substs[i][0] != '%')
-			return 0;
-
 	return 1;
 }
 
+/* see comment in smaunch-fs.h */
 void smaunch_fs_set_substitutions(const char const *substs[][2], int count)
 {
 	assert(smaunch_fs_valid_substitutions(substs, count));
@@ -540,245 +1318,75 @@ void smaunch_fs_set_substitutions(const char const *substs[][2], int count)
 	substitutions_count = count;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-static void set_dir_childs_action_rec(int diri, enum actions action)
+/* see comment in smaunch-fs.h */
+int smaunch_fs_load_database(const char *path)
 {
-	int child;
-
-	child = $(diri)[dir_child];
-	while(ISVALID(child)) {
-		$(child)[dir_action] = action;
-		set_dir_childs_action_rec(child, action);
-		child = $(child)[dir_next];
-	}
-}
-
-static void set_dir_childs_action(int diri, enum actions action)
-{
-	if (ISVALID(diri))
-		set_dir_childs_action_rec(diri, action);
-}
-
-static void prepare_dir(int diri, enum mkinds kind)
-{
-	enum actions action;
-
-	action = mount_none + kind;
-	if (action > $(diri)[dir_action]) {
-
-		/* wider privilege */
-		$(diri)[dir_action] = action;
-
-		/* reset children */
-		set_dir_childs_action(diri, nothing);
-
-		/* force existing path */
-		diri = $(diri)[dir_parent];
-		while (ISVALID(diri) && $(diri)[dir_action] == nothing) {
-			$(diri)[dir_action] = should_exist;
-			diri = $(diri)[dir_parent];
-		}
-	}
-}
-
-static void prepare_key(int keyi)
-{
-	int rulei;
-
-	rulei = $(keyi)[key_rule];
-	while (ISVALID(rulei)) {
-		prepare_dir($(rulei)[rule_dir], $(rulei)[rule_kind]);
-		rulei = $(rulei)[rule_next];
-	}
-}
-
-
-static int get_mount_fs(int diri, char *buffer, int length)
-{
-	int len;
-
-	len = get_dir_path(diri, buffer, length, root_dir);
-	if (len >= length)
-		return -ENAMETOOLONG;
-
-	return 0;
-}
-
-static int get_mount_tmp(int refdiri, int diri, char *buffer, int length)
-{
-	int len;
-
-	assert(length >= 4);
-
-	buffer[0] = '/';
-	buffer[1] = 't';
-	buffer[2] = 'm';
-	buffer[3] = 'p';
-	len = get_dir_path(diri, buffer+4, length, refdiri);
-	if (len >= length - 4)
-		return -ENAMETOOLONG;
-
-	return 0;
-}
-
-static int get_mount_points(int refdiri, int diri, char *fs, char *tmp, int length)
-{
+#if ALLOWCOMPILE
+	char cpldb[PATH_MAX];
+	struct stat sdb, scpl;
 	int result;
 
-	result = get_mount_fs(diri, fs, length);
-	if (!result)
-		result = get_mount_tmp(refdiri, diri, tmp, length);
+	assert(path != NULL);
 
-	return result;
-}
+	/* get info about database */
+	result = stat(path, &sdb);
+	if (result < 0)
+		return -errno;
 
-static int apply_sub_dirs(int refdiri, int diri, enum actions refact);
-
-static int apply_mount(int refdiri, int diri, enum actions refact, enum actions action)
-{
-	char tmpdir[PATH_MAX], fsdir[PATH_MAX];
-
-	int result;
-	int bind = action != mount_none;
-	int ronly = action != mount_read_write;
-	int move = refact == nothing;
-	int apply = refact != action;
-
-	if (!unshared) {
-		result = unshare(CLONE_NEWNS);
-		if (result < 0)
-			return -errno;
-		result = mount("", "/", "", MS_SLAVE|MS_REC, 0);
-		if (result < 0)
-			return -errno;
-		unshared = 1;
-	}
-
-	result = get_mount_points(refdiri, diri, fsdir, tmpdir, PATH_MAX);
+	/* get name of the compiled database */
+	result = get_compiled_path(path, cpldb, sizeof cpldb);
 	if (result)
 		return result;
 
-	if (apply) {
-		if (bind) {
-			result = mount(fsdir, tmpdir, "", MS_BIND, 0);
-		} else {
-			result = mount("ram", tmpdir, "ramfs", 0, 0);
-		}
-		if (result < 0)
-			return -errno;
+	/* test if available */
+	result = stat(cpldb, &scpl);
+	if (!result && sdb.st_mtime < scpl.st_mtime) {
+		/* try to use the compiled database */
+		result = read_compiled_database(cpldb);
+		if (!result)
+			return 0;
 	}
 
-	result = apply_sub_dirs(refdiri, $(diri)[dir_child], action);
-	if (result < 0)
-		return result;
-
-	if (apply && ronly) {
-		if (bind) {
-			result = mount("", tmpdir, "", MS_BIND|MS_REMOUNT|MS_RDONLY, 0);
-		} else {
-			result = mount("", tmpdir, "", MS_REMOUNT|MS_RDONLY, 0);
-		}
-		if (result < 0)
-			return -errno;
-	}
-
-	if (move) {
-		result = mount(tmpdir, fsdir, "", MS_MOVE, 0);
-	}
+	/* compile the database */
+	result = read_database(path);
+	if (!result)
+		save_compiled_database(cpldb);
 
 	return result;
+#else
+	assert(path);
+
+	return read_database(path);
+#endif
 }
 
-static int apply_sub_dirs(int refdiri, int diri, enum actions refact)
+/* see comment in smaunch-fs.h */
+int smaunch_fs_has_database()
 {
-	char tmpdir[PATH_MAX];
-	int result, action;
-
-	result = 0;
-	while (!result && ISVALID(diri)) {
-		action = $(diri)[dir_action];
-		if (action != nothing) {
-			result = get_mount_tmp(refdiri, diri, tmpdir, PATH_MAX);
-			if (!result) {
-				result = mkdir(tmpdir, 0777);
-				result = !result || errno == EEXIST ? 0 : -errno;
-			}
-			if (!result) {
-				switch (action) {
-				case should_exist:
-					result = apply_sub_dirs(refdiri, $(diri)[dir_child], refact);
-					break;
-				default:
-					result = apply_mount(refdiri, diri, refact, action);
-					break;
-				}
-			}
-		}
-		diri = $(diri)[dir_next];
-	}
-	return result;
+	return ISVALID(last_key);
 }
 
-static int apply_free_dirs(int diri)
+/* see comment in smaunch-fs.h */
+int smaunch_fs_has_key(const char *key)
 {
-	int result, action;
-
-	result = 0;
-	while (!result && ISVALID(diri)) {
-		action = $(diri)[dir_action];
-		switch (action) {
-		case nothing:
-			break;
-		case should_exist:
-		case mount_read_write: /* yes, even read-write */
-			result = apply_free_dirs($(diri)[dir_child]);
-			break;
-		default:
-			result = apply_mount(diri, diri, nothing, action);
-			break;
-		}
-		diri = $(diri)[dir_next];
-	}
-	return result;
-}
-
-
-
-
-
-
-
-int smaunch_fs_context_start(const char *defaultkey)
-{
-	int keyi;
-
-	assert(defaultkey);
+	assert(key);
 	assert(smaunch_fs_has_database());
 
-	keyi = get_key(defaultkey, 0);
-	if (keyi < 0)
-		return keyi;
+	return ISVALID(get_key(key, 0));
+}
+
+/* see comment in smaunch-fs.h */
+void smaunch_fs_context_start()
+{
+	assert(smaunch_fs_has_database());
 
 	if (ISVALID(root_dir)) {
 		$(root_dir)[dir_action] = nothing;
-		set_dir_childs_action(root_dir, nothing);
+		set_dir_childs_nothing(root_dir);
 	}
-
-	default_key = keyi;
-	return 0;
 }
 
+/* see comment in smaunch-fs.h */
 int smaunch_fs_context_add(const char *key)
 {
 	int keyi;
@@ -792,29 +1400,16 @@ int smaunch_fs_context_add(const char *key)
 
 	prepare_key(keyi);
 
-	default_key = INVALID;
 	return 0;
 }
 
+/* see comment in smaunch-fs.h */
 int smaunch_fs_context_apply()
 {
-	int result;
-
 	assert(smaunch_fs_has_database());
 
 	unshared = 0;
-
-	if (!ISVALID(default_key)) {
-		result = apply_free_dirs(root_dir);
-	} else {
-		prepare_key(default_key);
-		result = apply_free_dirs(root_dir);
-		if (ISVALID(root_dir)) {
-			$(root_dir)[dir_action] = nothing;
-			set_dir_childs_action(root_dir, nothing);
-		}
-	}
-	return result;
+	return apply_main_dirs(root_dir);
 }
 
 
@@ -826,7 +1421,7 @@ int smaunch_fs_context_apply()
 const char *dir2str(int diri)
 {
 	static char tampon[PATH_MAX];
-	get_dir_path(diri, tampon, (int)(sizeof tampon), root_dir);
+	get_dir_path(diri, tampon, (int)(sizeof tampon));
 	return tampon;
 }
 
@@ -844,7 +1439,7 @@ void dump_keys_rec(int keyi)
 	if (ISVALID(keyi)) {
 		dump_keys_rec($(keyi)[key_previous]);
 		printf("KEY %s\n", (char*)($($(keyi)[key_string])));
-		dump_rules($(keyi)[key_rule]);
+		dump_rules($(keyi)[key_rules]);
 		printf("\n");
 	}
 }
@@ -879,7 +1474,7 @@ void apply_all_rec(int keyi)
 {
 	if (ISVALID(keyi)) {
 		printf("\n\nAPPLYING %s\n",(char*)$($(keyi)[key_string]));
-		smaunch_fs_context_start((char*)$($(keyi)[key_string]));
+		smaunch_fs_context_start();
 		smaunch_fs_context_add((char*)$($(keyi)[key_string]));
 		dump_dirs();
 		smaunch_fs_context_apply();

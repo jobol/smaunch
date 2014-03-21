@@ -1,7 +1,7 @@
 /* 2014, Copyright Intel & Jose Bollo <jose.bollo@open.eurogiciel.org>, license MIT */
 
 /*
- * error codes for parsing
+ * error codes reading databases
  */
 enum smaunch_smack_syntax_errors {
 	smack_extra_after_key = 100,	/* extra field after key */

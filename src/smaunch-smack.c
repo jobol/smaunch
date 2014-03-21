@@ -122,7 +122,7 @@ void dump();
 /*
  * Clears the database
  */
-static void clear_database()
+static void clear_all()
 {
 	buffer_reinit(&hash_buffer);
 	buffer_reinit(&data_buffer);
@@ -273,7 +273,6 @@ static int add_key_rule(int keyi, const char *object, const char *access)
 	assert(access);
 	assert(smack_object_is_valid(object));
 	assert(smack_coda_string_is_valid(access));
-	assert(!ISVALID(last_item));
 
 	/* get the item for the object */
 	obji = item_get(object, 1);
@@ -551,6 +550,8 @@ static int read_database_internal(const char *path)
 
 /*
  * Reads the database of 'path' filename.
+ * The current data are first cleared then the file isread.
+ * In case of error, the data are recleared, leave the state clear. 
  *
  * Requires: path != NULL
  *
@@ -562,13 +563,13 @@ static int read_database(const char *path)
 
 	assert(path);
 
-	clear_database();
+	clear_all();
 
 	assert(!ISVALID(last_item));
 
 	result = read_database_internal(path);
 	if (result)
-		clear_database();
+		clear_all();
 
 	assert(ISVALID(last_item) || result);
 
@@ -622,7 +623,7 @@ static int save_compiled_database(const char *path)
 	iovect[4].iov_len = object_count * sizeof * object_strings;
 
 	/* open the file for write */
-	file = open(path, O_WRONLY|O_CREAT|O_TRUNC, S_IRWXU);
+	file = open(path, O_WRONLY|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
 	if (file < 0)
 		return file;
 
@@ -731,17 +732,45 @@ static int read_compiled_database(const char *path)
 
 	assert(path);
 
-	clear_database();
-
-	assert(!ISVALID(last_item));
-
+	clear_all();
 	result = read_compiled_database_internal(path);
 	if (result)
-		clear_database();
+		clear_all();
 
 	assert(ISVALID(last_item) || result);
 
 	return result;
+}
+
+/*
+ * Computes in 'buffer' of 'length' the compiled path name of the
+ * database of 'path'.
+ *
+ * Returns 0 in case of success or else -ENAMETOOLONG
+ */
+static int get_compiled_path(const char *path, char *buffer, int length)
+{
+	int i, j;
+
+	i = 0;
+	j = 0;
+	while (path[i])
+		if (path[i++] == '/')
+			j = i;
+
+	if (i + 5 >= length)
+		return -ENAMETOOLONG;
+
+	if (j)
+		memcpy(buffer, path, j);
+	buffer[j] = '.';
+	memcpy(buffer + j + 1, path + j, i - j);
+	buffer[i+1] = '.';
+	buffer[i+2] = 'b';
+	buffer[i+3] = 'i';
+	buffer[i+4] = 'n';
+	buffer[i+5] = 0;
+	return 0;
 }
 #endif
 
@@ -761,9 +790,9 @@ int smaunch_smack_load_database(const char *path)
 		return -errno;
 
 	/* get name of the compiled database */
-	result = snprintf(cpldb, sizeof cpldb, "%s.compiled", path);
-	if (result >= (int)sizeof cpldb)
-		return -ENAMETOOLONG;
+	result = get_compiled_path(path, cpldb, sizeof cpldb);
+	if (result)
+		return result;
 
 	/* test if available */
 	result = stat(cpldb, &scpl);

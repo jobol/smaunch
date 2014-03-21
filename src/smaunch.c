@@ -10,6 +10,8 @@
 #include "smaunch-smack.h"
 #include "smaunch-fs.h"
 
+const char *default_fs_key = 0;
+
 int smaunch_init(const char *smackdb, const char *fsdb)
 {
 	int result;
@@ -29,14 +31,15 @@ int smaunch_init(const char *smackdb, const char *fsdb)
 	return result;
 }
 
-int smaunch_context_start(const char *defskey)
+void smaunch_context_start(const char *defskey)
 {
 	assert(defskey);
 	assert(smaunch_smack_has_database());
 	assert(smaunch_fs_has_database());
 
 	smaunch_smack_context_start();
-	return smaunch_fs_context_start(defskey);
+	smaunch_fs_context_start();
+	default_fs_key = defskey;
 }
 
 int smaunch_context_add(const char *key)
@@ -49,6 +52,8 @@ int smaunch_context_add(const char *key)
 
 	rsm = smaunch_smack_context_add(key);
 	rfs = smaunch_fs_context_add(key);
+	if (!rfs)
+		default_fs_key = 0;
 
 	if (!rsm)
 		return rfs==-ENOENT ? 0 : rfs;
@@ -69,12 +74,18 @@ int smaunch_context_apply()
 	assert(smaunch_smack_has_database());
 	assert(smaunch_fs_has_database());
 
+	if (default_fs_key) {
+		result = smaunch_fs_context_add(default_fs_key);
+		if (result)
+			return result;
+	}
+		
 	result = smaunch_smack_context_apply();
-	if (result < 0)
+	if (result)
 		return result;
 
 	result = smaunch_fs_context_apply();
-	if (result < 0)
+	if (result)
 		return result;
 
 	return 0;
@@ -135,11 +146,11 @@ int main(int argc, char** argv)
 
 	smaunch_fs_set_substitutions(substs, 1);
 
-	sts = smaunch_init("db.smack", "db.fs");
+	sts = smaunch_init("/home/jb/dev/smaunch/src/db.smack", "/home/jb/dev/smaunch/src/db.fs");
 	printf("init %d\n", sts);
 
-	sts = smaunch_context_start("restricted");
-	printf("start %d\n", sts);
+	smaunch_context_start("restricted");
+	printf("startdd\n");
 
 	while(*++argv) {
 		sts = smaunch_context_add(*argv);
