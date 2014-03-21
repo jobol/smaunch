@@ -1,6 +1,6 @@
 .PHONY: all
 
-all: smaunch smaunchi
+all: smaunch smaunchi smaunchg
 
 DEPSRC = \
 	smack-utils-label.c \
@@ -20,10 +20,18 @@ DEPINC = \
 	parse.h \
 	buffer.h
 
+# optimized version
 smaunch: smaunch.c $(DEPSRC) $(DEPINC)
-	gcc -DTEST -DSIMULATION=0 -Wall -g -o smaunch smaunch.c $(DEPSRC)
+	gcc -DTEST -DSIMULATION=0 -O3 -DNDEBUG -o smaunch smaunch.c $(DEPSRC)
+	strip smaunch
 
+# debug version
+smaunchg: smaunch.c $(DEPSRC) $(DEPINC)
+	gcc -DTEST -DSIMULATION=0 -Wall -g -o smaunchg smaunch.c $(DEPSRC)
+
+# simulation version
 smaunchi: smaunch.c $(DEPSRC) $(DEPINC)
 	gcc -DTEST -DSIMULATION=1 -Wall -g -o smaunchi smaunch.c $(DEPSRC)
+
 
 
