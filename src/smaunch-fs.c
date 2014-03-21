@@ -1502,7 +1502,7 @@ int main(int argc, char **argv)
 		printf("\n");
 	}
 	smaunch_fs_set_substitutions(substs, 2);
-	n = smaunch_fs_load_database("dbfs");
+	n = smaunch_fs_load_database("db.fs");
 	printf("\nLOADING dbfs: %d\n", n);
 	if (!n) {
 		dump_all();
