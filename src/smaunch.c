@@ -10,16 +10,26 @@
 #include "smaunch-smack.h"
 #include "smaunch-fs.h"
 
-const char *default_fs_key = 0;
+#if !defined(SIMULATION)
+#define SIMULATION 0
+#endif
 
-int smaunch_init(const char *smackdb, const char *fsdb)
+static const char *default_fs_key = 0;
+
+int smaunch_init(const char *smackdb, const char *fsdb, const char *defskey)
 {
 	int result;
 
 	assert(smackdb);
 	assert(fsdb);
 
-	smack_fs_mount_point();
+	default_fs_key = 0;
+
+#if !SIMULATION
+	if (!smack_fs_mount_point())
+		return -EACCES;
+#endif
+
 	result = smaunch_smack_load_database(smackdb);
 	if (result < 0) /* todo: syntax error? */
 		return result;
@@ -28,58 +38,48 @@ int smaunch_init(const char *smackdb, const char *fsdb)
 	if (result < 0) /* todo: syntax error? */
 		return result;
 
-	return result;
+	if (!smaunch_fs_has_key(defskey))
+		return -ENOENT;
+
+	default_fs_key = defskey;
+	return 0;
 }
 
-void smaunch_context_start(const char *defskey)
+int smaunch_is_ready()
 {
-	assert(defskey);
-	assert(smaunch_smack_has_database());
-	assert(smaunch_fs_has_database());
+	return !!default_fs_key;
+}
+
+int smaunch_apply(char **keys)
+{
+	int result, setdef, rsm, rfs;
+
+	assert(smaunch_is_ready());
 
 	smaunch_smack_context_start();
 	smaunch_fs_context_start();
-	default_fs_key = defskey;
-}
 
-int smaunch_context_add(const char *key)
-{
-	int rsm, rfs;
+	setdef = 1;
+	while (*keys) {
 
-	assert(key);
-	assert(smaunch_smack_has_database());
-	assert(smaunch_fs_has_database());
+		rsm = smaunch_smack_context_add(*keys);
+		if (rsm && rsm != -ENOENT)
+			return rsm;
 
-	rsm = smaunch_smack_context_add(key);
-	rfs = smaunch_fs_context_add(key);
-	if (!rfs)
-		default_fs_key = 0;
+		rfs = smaunch_fs_context_add(*keys);
+		if (!rfs)
+			setdef = 0;
+		else if (rfs != -ENOENT || rsm)
+			return rfs;
 
-	if (!rsm)
-		return rfs==-ENOENT ? 0 : rfs;
-
-	if (!rfs)
-		return rsm==-ENOENT ? 0 : rsm;
-
-	if (rsm != -ENOENT)
-		return rsm;
-
-	return rfs;
-}
-
-int smaunch_context_apply()
-{
-	int result;
-
-	assert(smaunch_smack_has_database());
-	assert(smaunch_fs_has_database());
-
-	if (default_fs_key) {
-		result = smaunch_fs_context_add(default_fs_key);
-		if (result)
-			return result;
+		keys++;
 	}
-		
+
+	if (setdef) {
+		result = smaunch_fs_context_add(default_fs_key);
+		assert(!result);
+	}
+
 	result = smaunch_smack_context_apply();
 	if (result)
 		return result;
@@ -105,63 +105,33 @@ int smaunch_drop_caps()
 	return sts ? -errno : 0;
 }
 
+int smaunch_exec(char **keys, const char *filename, char **argv, char **envp);
+int smaunch_fork_exec(char **keys, const char *filename, char **argv, char **envp);
+
+
 #ifdef TEST
 #include <stdio.h>
 
 int main(int argc, char** argv)
 {
-#if 0
-	char buffer[4096], command[1024], key[1024];
-	int n;
-	while(fgets(buffer,sizeof buffer,stdin)) {
-		n = sscanf(buffer,"%s %s",command,key);
-		switch (n) {
-		case 1:
-			if (0 == strcmp(command, "apply") && smaunch_smack_has_database()) {
-				printf("[apply] %d\n",smaunch_smack_context_apply());
-				smaunch_smack_context_start();
-				continue;
-			}
-			break;
-		case 2:
-			if (0 == strcmp(command, "load")) {
-				n = smaunch_smack_load_database(key);
-				printf("[load] %d\n",n);
-				if (n == 0)
-					smaunch_smack_dump_all(1);
-				continue;
-			}
-			if (0 == strcmp(command, "add") && smaunch_smack_has_database()) {
-				printf("[add] %d\n",smaunch_smack_context_add(key));
-				continue;
-			}
-			break;
-		}
-	}
-#else
 	int sts;
-	const char *substs[][2] = { { "%user", NULL } };
+	const char *substs[][2] = {
+		{ "%user", NULL },
+		{ "%uid",  NULL }
+	};
 
 	substs[0][1] = getenv("USER");
+	substs[1][1] = getenv("UID");
 
-	smaunch_fs_set_substitutions(substs, 1);
+	smaunch_fs_set_substitutions(substs, 2);
 
-	sts = smaunch_init("/home/jb/dev/smaunch/src/db.smack", "/home/jb/dev/smaunch/src/db.fs");
+	sts = smaunch_init("db.smack", "db.fs", "restricted");
 	printf("init %d\n", sts);
 
-	smaunch_context_start("restricted");
-	printf("startdd\n");
-
-	while(*++argv) {
-		sts = smaunch_context_add(*argv);
-		printf("add %s %d\n",*argv,sts);
-	}
-
-	sts = smaunch_context_apply();
+	sts = smaunch_apply(++argv);
 	printf("apply %d\n", sts);
 
 	system("/bin/sh");
-#endif
 	return 0;
 }
 #endif
