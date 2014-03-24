@@ -1085,7 +1085,7 @@ static int read_database_internal(const char *path)
 	close(parse.file);
 
 	/* is empty ? */
-	if (!sts && ISVALID(last_key))
+	if (!sts && !ISVALID(last_key))
 		sts = parse_make_syntax_error(fs_file_empty, parse.lino);
 
 	return sts;
