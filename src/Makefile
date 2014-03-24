@@ -1,6 +1,6 @@
 .PHONY: all
 
-all: smaunch smaunchi smaunchg
+all: smaunch smaunchi smaunchg smaunchig
 
 DEPSRC = \
 	smack-utils-label.c \
@@ -22,16 +22,23 @@ DEPINC = \
 
 # optimized version
 smaunch: smaunch.c $(DEPSRC) $(DEPINC)
-	gcc -DTEST -DSIMULATION=0 -O3 -DNDEBUG -o smaunch smaunch.c $(DEPSRC)
-	strip smaunch
+	gcc -DTEST -DSIMULATION=0 -O3 -DNDEBUG -o $@ smaunch.c $(DEPSRC)
+	strip $@
+	sudo /sbin/setcap cap_sys_admin+pe $@
 
 # debug version
 smaunchg: smaunch.c $(DEPSRC) $(DEPINC)
-	gcc -DTEST -DSIMULATION=0 -Wall -g -o smaunchg smaunch.c $(DEPSRC)
+	gcc -DTEST -DSIMULATION=0 -Wall -g -o $@ smaunch.c $(DEPSRC)
+	sudo /sbin/setcap cap_sys_admin+pe $@
 
-# simulation version
+# optimized simulation version
 smaunchi: smaunch.c $(DEPSRC) $(DEPINC)
-	gcc -DTEST -DSIMULATION=1 -Wall -g -o smaunchi smaunch.c $(DEPSRC)
+	gcc -DTEST -DSIMULATION=1 -O3 -DNDEBUG -o $@ smaunch.c $(DEPSRC)
+	strip $@
+
+# debug simulation version
+smaunchig: smaunch.c $(DEPSRC) $(DEPINC)
+	gcc -DTEST -DSIMULATION=1 -Wall -g -o $@ smaunch.c $(DEPSRC)
 
 
 
