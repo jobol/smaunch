@@ -4,8 +4,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <assert.h>
-#include <sys/prctl.h>
-#include <linux/securebits.h>
+#include <fcntl.h>
 
 #include "smack-utils-fs.h"
 #include "smaunch-smack.h"
@@ -89,33 +88,67 @@ int smaunch_prepare(char **keys)
 
 int smaunch_apply()
 {
+#if SIMULATION
 	int result;
 
 	assert(smaunch_is_ready());
 
+	/* apply smack and fs rules */
 	result = smaunch_smack_context_apply();
-	if (result)
+	if (!result) {
+		result = smaunch_fs_context_apply();
+	}
+
+	return result;
+#else
+	int result, length, file;
+	char slabel[256];
+
+	assert(smaunch_is_ready());
+
+	/* Open once the smack context control */
+	file = open("/proc/self/attr/current", O_RDWR);
+	if (file < 0)
+		return -errno;
+
+	/* Save the smack context */
+	length = (int)pread(file, slabel, sizeof slabel - 1, 0);
+	if (length < 0) {
+		result = -errno;
+		close(file);
 		return result;
+	}
+	if (length == 0) {
+		strncpy(slabel, "User", 5);
+		length = 4;
+	} else {
+		slabel[length] = 0;
+	}
 
-	result = smaunch_fs_context_apply();
-	if (result)
+	/* Set context to floor to be able to mount */
+	result = pwrite(file, "_", 1, 0);
+	if (result < 0) {
+		result = -errno;
+		close(file);
 		return result;
+	}
 
-	return 0;
-}
+	/* apply smack and fs rules */
+	smaunch_smack_set_subject(slabel);
+	result = smaunch_smack_context_apply();
+	if (!result) {
+		result = smaunch_fs_context_apply();
+	}
 
-int smaunch_drop_caps()
-{
-	int sts;
+	/* Restore the saved smack context */
+	length = pwrite(file, slabel, length, 0);
+	if (length < 0 && !result)
+		result = -errno;
 
-	sts = prctl(PR_SET_SECUREBITS,
-		   SECBIT_KEEP_CAPS_LOCKED |
-		   SECBIT_NO_SETUID_FIXUP |
-		   SECBIT_NO_SETUID_FIXUP_LOCKED |
-		   SECBIT_NOROOT |
-		   SECBIT_NOROOT_LOCKED);
+	close(file);
 
-	return sts ? -errno : 0;
+	return result;
+#endif
 }
 
 int smaunch_exec(char **keys, const char *filename, char **argv, char **envp)
@@ -200,7 +233,17 @@ int main(int argc, char** argv)
 
 	lap(1);
 
+#if 1
 	sts = smaunch_init("db.smack", "db.fs", "restricted");
+#if 1
+	if (!sts) {
+		smaunch_smack_save_database_compiled(".db.smack.bin");
+		smaunch_fs_save_database_compiled(".db.fs.bin");
+	}
+#endif
+#else
+	sts = smaunch_init(".db.smack.bin", ".db.fs.bin", "restricted");
+#endif
 
 	lap(2);
 

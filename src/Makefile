@@ -24,12 +24,12 @@ DEPINC = \
 smaunch: smaunch.c $(DEPSRC) $(DEPINC)
 	gcc -DTEST -DSIMULATION=0 -O3 -DNDEBUG -o $@ smaunch.c $(DEPSRC)
 	strip $@
-	sudo /sbin/setcap cap_sys_admin+pe $@
+	sudo /sbin/setcap cap_sys_admin,cap_mac_admin=+pe-i $@
 
 # debug version
 smaunchg: smaunch.c $(DEPSRC) $(DEPINC)
 	gcc -DTEST -DSIMULATION=0 -Wall -g -o $@ smaunch.c $(DEPSRC)
-	sudo /sbin/setcap cap_sys_admin+pe $@
+	sudo /sbin/setcap cap_sys_admin,cap_mac_admin=+pe-i $@
 
 # optimized simulation version
 smaunchi: smaunch.c $(DEPSRC) $(DEPINC)
