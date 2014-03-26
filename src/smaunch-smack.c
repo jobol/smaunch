@@ -437,32 +437,30 @@ static int context_apply(const smack_coda *codas, int file, int multi, int diff)
 }
 
 /*
- * Reads the database of 'path' filename.
+ * Reads the database of 'file'
  *
  * CAUTION, in case of error the returned data state is undefined.
  *
- * Requires: path != NULL
+ * Requires: file >= 0
  *           && !ISVALID(last_item)
  *
  * Returns 0 in case of success or a negative error code in case of error.
  */
-static int read_database_internal(const char *path)
+static int read_textual_database(int file)
 {
 	struct parse parse;
 	int sts, keyi, k;
 
 	/* checks */
-	assert(path);
+	assert(file >= 0);
 	assert(!ISVALID(last_item));
 
 	/* init the parse */
-	sts = parse_init_open(&parse, path);
-	if (sts < 0)
-		return sts;
-	assert(sts == 0);
+	parse_init(&parse, file);
 
 	/* parse the file */
 	keyi = INVALID;
+	sts = 0;
 	while(!parse.finished && !sts) {
 
 		/* read one line */
@@ -515,9 +513,6 @@ static int read_database_internal(const char *path)
 			}
 		}
 	}
-	/* close the file */
-	close(parse.file);
-
 	/* stop if error */
 	assert(sts <= 0);
 	if (sts)
@@ -546,34 +541,6 @@ static int read_database_internal(const char *path)
 
 	assert(ISVALID(last_item));
 	return 0;
-}
-
-/*
- * Reads the database of 'path' filename.
- * The current data are first cleared then the file isread.
- * In case of error, the data are recleared, leave the state clear. 
- *
- * Requires: path != NULL
- *
- * Returns 0 in case of success or a negative error code in case of error.
- */
-static int read_database(const char *path)
-{
-	int result;
-
-	assert(path);
-
-	clear_all();
-
-	assert(!ISVALID(last_item));
-
-	result = read_database_internal(path);
-	if (result)
-		clear_all();
-
-	assert(ISVALID(last_item) || result);
-
-	return result;
 }
 
 #if ALLOWCOMPILE
@@ -635,49 +602,37 @@ static int save_compiled_database(const char *path)
 }
 
 /*
- * Reads the binary compiled database of 'path' filename.
+ * Reads the binary compiled database of 'file'
  *
  * CAUTION, in case of error the returned data state is undefined.
  *
- * Requires: path != NULL
+ * Requires: file >= 0
  *           && !ISVALID(last_item)
  *
  * Returns 0 in case of success or a negative error code in case of error.
  */
-static int read_compiled_database_internal(const char *path)
+static int read_compiled_database(int file)
 {
-	int file, result, head[header_size];
+	int head[header_size];
 	struct iovec iovect[4];
 	ssize_t readen;
 
 	/* checks */
-	assert(path);
+	assert(file >= 0);
 	assert(!ISVALID(last_item));
-
-	/* open the file for read */
-	file = open(path, O_RDONLY);
-	if (file < 0)
-		return file;
 
 	/* read the header */
 	readen = read(file, head, sizeof head);
-	if (readen < 0) {
-		result = -errno;
-		close(file);
-		return result;
-	}
-	if (readen < sizeof head) {
-		close(file);
-		return -EINTR;
-	}
+	if (readen < 0)
+		return -errno;
+	if (readen < sizeof head) 
+		return -ENOEXEC;
 
 	/* check magic data */
 	if (head[header_magic_tag_1] != HEADER_MAGIC_TAG_1
 		|| head[header_magic_tag_2] != HEADER_MAGIC_TAG_2
-		|| head[header_magic_version] != HEADER_MAGIC_VERSION) {
-		close(file);
-		return -EBADF;
-	}
+		|| head[header_magic_version] != HEADER_MAGIC_VERSION)
+		return -ENOEXEC;
 
 	/* allocate memory */
 	data_buffer.data = malloc(head[header_data_count] * sizeof * data_buffer.data);
@@ -685,10 +640,8 @@ static int read_compiled_database_internal(const char *path)
 	coda_reference = malloc(head[header_object_count] * sizeof * coda_reference);
 	coda_context = calloc(head[header_object_count], sizeof * coda_reference);
 	object_strings = malloc(head[header_object_count] * sizeof * object_strings);
-	if (!data_buffer.data || !hash_buffer.data || !coda_reference || !coda_context) {
-		close(file);
+	if (!data_buffer.data || !hash_buffer.data || !coda_reference || !coda_context)
 		return -ENOMEM;
-	}
 
 	/* init data */
 	data_buffer.count = head[header_data_count];
@@ -714,112 +667,93 @@ static int read_compiled_database_internal(const char *path)
 
 	/* read all now */
 	readen = readv(file, iovect, 4);
-	result = readen < 0 ? -errno : 0;
-	close(file);
-	return result;
+	return readen < 0 ? -errno : 0;
 }
+#endif
 
 /*
- * Reads the binary compiled database of 'path' filename.
+ * Reads the database of 'file'
  *
- * Requires: path != NULL
+ * Requires: file >= 0
+ *           && !ISVALID(last_item)
  *
  * Returns 0 in case of success or a negative error code in case of error.
  */
-static int read_compiled_database(const char *path)
+static int read_database(int file)
 {
 	int result;
+	off_t pos;
 
-	assert(path);
+	assert(file >= 0);
+	assert(!ISVALID(last_item));
 
-	clear_all();
-	result = read_compiled_database_internal(path);
-	if (result)
-		clear_all();
-
-	assert(ISVALID(last_item) || result);
-
-	return result;
-}
-
-/*
- * Computes in 'buffer' of 'length' the compiled path name of the
- * database of 'path'.
- *
- * Returns 0 in case of success or else -ENAMETOOLONG
- */
-static int get_compiled_path(const char *path, char *buffer, int length)
-{
-	int i, j;
-
-	i = 0;
-	j = 0;
-	while (path[i])
-		if (path[i++] == '/')
-			j = i;
-
-	if (i + 5 >= length)
-		return -ENAMETOOLONG;
-
-	if (j)
-		memcpy(buffer, path, j);
-	buffer[j] = '.';
-	memcpy(buffer + j + 1, path + j, i - j);
-	buffer[i+1] = '.';
-	buffer[i+2] = 'b';
-	buffer[i+3] = 'i';
-	buffer[i+4] = 'n';
-	buffer[i+5] = 0;
-	return 0;
-}
+	pos = lseek(file, 0, SEEK_CUR);
+#if ALLOWCOMPILE
+	result = read_compiled_database(file);
+	if (result == -ENOEXEC && pos != ((off_t)-1)) {
+		if (pos == lseek(file, pos, SEEK_SET))
+			result = read_textual_database(file);
+		else
+			result = -errno;
+	}
+#else
+	result = read_textual_database(file);
 #endif
 
-/* see comment in smaunch-smack.h */
-int smaunch_smack_load_database(const char *path)
-{
-#if ALLOWCOMPILE
-	char cpldb[PATH_MAX];
-	struct stat sdb, scpl;
-	int result;
-
-	assert(path != NULL);
-
-	/* get info about database */
-	result = stat(path, &sdb);
-	if (result < 0)
-		return -errno;
-
-	/* get name of the compiled database */
-	result = get_compiled_path(path, cpldb, sizeof cpldb);
-	if (result)
-		return result;
-
-	/* test if available */
-	result = stat(cpldb, &scpl);
-	if (!result && sdb.st_mtime < scpl.st_mtime) {
-		/* try to use the compiled database */
-		result = read_compiled_database(cpldb);
-		if (!result)
-			return 0;
+	if (result) {
+		clear_all();
+		if (pos != ((off_t)-1))
+			lseek(file, pos, SEEK_SET);
 	}
 
-	/* compile the database */
-	result = read_database(path);
-	if (!result)
-		save_compiled_database(cpldb);
+	assert(result <= 0);
+	assert(smaunch_smack_has_database() == !result);
 
 	return result;
-#else
-	assert(path != NULL);
-
-	return read_database(path);
-#endif
 }
 
 /* see comment in smaunch-smack.h */
 int smaunch_smack_has_database()
 {
 	return ISVALID(last_item);
+}
+
+/* see comment in smaunch-smack.h */
+int smaunch_smack_load_database(const char *path)
+{
+	int result, file;
+
+	assert(path != NULL);
+
+	/* clear all */
+	clear_all();
+
+	/* open the file for read */
+	file = open(path, O_RDONLY);
+	if (file < 0)
+		return file;
+
+	/* read and close */
+	result = read_database(file);
+	close(file);
+
+	assert(result <= 0);
+	assert(smaunch_smack_has_database() == !result);
+
+	return result;
+}
+
+/* see comment in smaunch-smack.h */
+int smaunch_smack_save_database_compiled(const char *path)
+{
+	assert(path);
+	assert(smaunch_smack_has_database());
+
+#if ALLOWCOMPILE
+	return save_compiled_database(path);
+#else
+	return -ENOTSUP;
+#endif
 }
 
 /* see comment in smaunch-smack.h */

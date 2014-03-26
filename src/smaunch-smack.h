@@ -24,6 +24,13 @@ enum smaunch_smack_syntax_errors {
 void smaunch_smack_set_subject(const char *subject);
 
 /*
+ * Test if a database is loaded.
+ *
+ * Returns 1 if database is loaded, 0 otherwise.
+ */
+int smaunch_smack_has_database();
+
+/*
  * Load the database of 'path'.
  *
  * Requires: path != NULL
@@ -33,11 +40,14 @@ void smaunch_smack_set_subject(const char *subject);
 int smaunch_smack_load_database(const char *path);
 
 /*
- * Test if a database is loaded.
+ * Saves the compiled version of database to 'path'.
  *
- * Returns 1 if database is loaded, 0 otherwise.
+ * Requires: path != NULL
+ *           && smaunch_smack_has_database()
+ *
+ * Return 0 on success or a negative error code otherwise.
  */
-int smaunch_smack_has_database();
+int smaunch_smack_save_database_compiled(const char *path);
 
 /*
  * Test if the key is in the database.
