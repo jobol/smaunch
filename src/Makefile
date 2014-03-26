@@ -12,6 +12,12 @@ clean:
 	$(MAKE) -f Makefile.inc X=g  S=0 D=y clean
 	$(MAKE) -f Makefile.inc X=i  S=1 D=n clean
 
+clean-nodist:
+	$(MAKE) -f Makefile.inc X=ig S=1 D=y clean
+	$(MAKE) -f Makefile.inc X=   S=0 D=n clean-all
+	$(MAKE) -f Makefile.inc X=g  S=0 D=y clean-all
+	$(MAKE) -f Makefile.inc X=i  S=1 D=n clean-all
+
 clean-all:
 	$(MAKE) -f Makefile.inc X=ig S=1 D=y clean-all
 	$(MAKE) -f Makefile.inc X=   S=0 D=n clean-all
