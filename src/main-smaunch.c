@@ -317,20 +317,22 @@ int main(int argc, char** argv, char **env)
 
 	arg = argv+1;
 
-	if (!strcmp(*arg, "-h") || !strcmp(*arg, "--help"))
-		return usage(0);
+	if (*arg) {
+		if (!strcmp(*arg, "-h") || !strcmp(*arg, "--help"))
+			return usage(0);
 
-	if (!strcmp(*arg, "-cf") || !strcmp(*arg, "--compile-fs"))
-		return compile(++arg, smaunch_fs_load_database, smaunch_fs_save_database_compiled);
+		if (!strcmp(*arg, "-cf") || !strcmp(*arg, "--compile-fs"))
+			return compile(++arg, smaunch_fs_load_database, smaunch_fs_save_database_compiled);
 
-	if (!strcmp(*arg, "-cs") || !strcmp(*arg, "--compile-smack"))
-		return compile(++arg, smaunch_smack_load_database, smaunch_smack_save_database_compiled);
+		if (!strcmp(*arg, "-cs") || !strcmp(*arg, "--compile-smack"))
+			return compile(++arg, smaunch_smack_load_database, smaunch_smack_save_database_compiled);
 
-	if (!strcmp(*arg, "-Cf") || !strcmp(*arg, "--check-fs"))
-		return compile(++arg, smaunch_fs_load_database, 0);
+		if (!strcmp(*arg, "-Cf") || !strcmp(*arg, "--check-fs"))
+			return compile(++arg, smaunch_fs_load_database, 0);
 
-	if (!strcmp(*arg, "-Cs") || !strcmp(*arg, "--check-smack"))
-		return compile(++arg, smaunch_smack_load_database, 0);
+		if (!strcmp(*arg, "-Cs") || !strcmp(*arg, "--check-smack"))
+			return compile(++arg, smaunch_smack_load_database, 0);
+	}
 
 	return launch(arg, env);
 }
