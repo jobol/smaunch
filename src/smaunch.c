@@ -78,12 +78,12 @@ int smaunch_prepare(char **keys)
 		keys++;
 	}
 
-	if (setdef) {
-		result = smaunch_fs_context_add(default_fs_key);
-		assert(!result);
-	}
+	if (!setdef)
+		return 0;
 
-	return 0;
+	result = smaunch_fs_context_add(default_fs_key);
+	assert(!result);
+	return result;
 }
 
 int smaunch_apply()
@@ -194,80 +194,11 @@ int smaunch_fork_exec(char **keys, const char *filename, char **argv, char **env
 			execve(filename, argv, envp ? envp : environ);
 			result = -errno;
 		}
-		_exit(1);
+		_exit(1); /* using _exit instead of exit is MANDATORY for vfork */
 	}
 
 	/* within vforking parent, after that child exits or execs */
 	assert(cpid > 0);
 	return result;
 }
-
-#ifdef TEST
-#include <stdio.h>
-#include <sys/wait.h>
-#include <sys/time.h>
-
-struct timeval          tops[20];
-
-#define lap(x)          gettimeofday(&tops[x],NULL)
-#define timedbl(tv)     ((double)(tv.tv_sec) * (double)1e6 + (double)(tv.tv_usec))
-#define duration(x,y)   (timedbl(tops[y]) - timedbl(tops[x]))
-
-int main(int argc, char** argv)
-{
-	int sts;
-	const char *substs[][2] = {
-		{ "%user", NULL },
-		{ "%uid",  NULL }
-	};
-	char *command[] = {
-		"/bin/sh",
-		NULL
-	};
-
-	lap(0);
-
-	substs[0][1] = getenv("USER");
-	substs[1][1] = getenv("UID");
-	smaunch_fs_set_substitutions(substs, 2);
-
-	lap(1);
-
-#if 1
-	sts = smaunch_init("db.smack", "db.fs", "restricted");
-#if 1
-	if (!sts) {
-		smaunch_smack_save_database_compiled(".db.smack.bin");
-		smaunch_fs_save_database_compiled(".db.fs.bin");
-	}
-#endif
-#else
-	sts = smaunch_init(".db.smack.bin", ".db.fs.bin", "restricted");
-#endif
-
-	lap(2);
-
-	printf("init %d\n", sts);
-	++argv;
-
-	lap(3);
-
-	sts = smaunch_fork_exec(argv, command[0], command, NULL);
-
-	lap(4);
-
-	printf("forkexec %d\n", sts);
-
-	if (!sts)
-		wait(&sts);
-
-	printf("TIMES:\n");
-	printf("  substs   %lf\n",duration(0,1));
-	printf("  init     %lf\n",duration(1,2));
-	printf("  forkexec %lf\n",duration(3,4));
-	printf("  all      %lf\n",duration(0,4));
-
-	return 0;
-}
-#endif
 

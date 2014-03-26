@@ -8,6 +8,7 @@ DEPSRC = \
 	smack-utils-fs.c \
 	smaunch-smack.c \
 	smaunch-fs.c \
+	smaunch.c \
 	parse.c \
 	buffer.c
 
@@ -17,28 +18,29 @@ DEPINC = \
 	smack-utils-fs.h \
 	smaunch-smack.h \
 	smaunch-fs.h \
+	smaunch.h \
 	parse.h \
 	buffer.h
 
 # optimized version
-smaunch: smaunch.c $(DEPSRC) $(DEPINC)
-	gcc -DTEST -DSIMULATION=0 -O3 -DNDEBUG -o $@ smaunch.c $(DEPSRC)
+smaunch: main-smaunch.c $(DEPSRC) $(DEPINC)
+	gcc -DTEST -DSIMULATION=0 -Wall -O3 -DNDEBUG -o $@ main-smaunch.c $(DEPSRC)
 	strip $@
 	sudo /sbin/setcap cap_sys_admin,cap_mac_admin=+pe-i $@
 
 # debug version
-smaunchg: smaunch.c $(DEPSRC) $(DEPINC)
-	gcc -DTEST -DSIMULATION=0 -Wall -g -o $@ smaunch.c $(DEPSRC)
+smaunchg: main-smaunch.c $(DEPSRC) $(DEPINC)
+	gcc -DTEST -DSIMULATION=0 -Wall -g -o $@ main-smaunch.c $(DEPSRC)
 	sudo /sbin/setcap cap_sys_admin,cap_mac_admin=+pe-i $@
 
 # optimized simulation version
-smaunchi: smaunch.c $(DEPSRC) $(DEPINC)
-	gcc -DTEST -DSIMULATION=1 -O3 -DNDEBUG -o $@ smaunch.c $(DEPSRC)
+smaunchi: main-smaunch.c $(DEPSRC) $(DEPINC)
+	gcc -DTEST -DSIMULATION=1 -Wall -O3 -DNDEBUG -o $@ main-smaunch.c $(DEPSRC)
 	strip $@
 
 # debug simulation version
-smaunchig: smaunch.c $(DEPSRC) $(DEPINC)
-	gcc -DTEST -DSIMULATION=1 -Wall -g -o $@ smaunch.c $(DEPSRC)
+smaunchig: main-smaunch.c $(DEPSRC) $(DEPINC)
+	gcc -DTEST -DSIMULATION=1 -Wall -g -o $@ main-smaunch.c $(DEPSRC)
 
 
 
