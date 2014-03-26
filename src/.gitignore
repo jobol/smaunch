@@ -2,4 +2,6 @@ smaunch
 smaunchg
 smaunchi
 smaunchig
-.*.bin
+*.bin
+*.a
+*.o
