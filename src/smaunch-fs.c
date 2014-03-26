@@ -994,16 +994,16 @@ static int apply_main_dirs(int diri)
 }
 
 /*
- * Reads the database of 'path' filename.
+ * Reads the textual database of 'file'.
  *
  * CAUTION, in case of error the returned data state is undefined.
  *
- * Requires: path != NULL
+ * Requires: file >= 0
  *           && !ISVALID(last_item)
  *
  * Returns 0 in case of success or a negative error code in case of error.
  */
-static int read_database_internal(const char *path)
+static int read_textual_database(int file)
 {
 	struct parse parse;
 	int sts, keyi, diri;
@@ -1011,16 +1011,15 @@ static int read_database_internal(const char *path)
 	const char *parts[64];
 
 	/* checks */
-	assert(path);
+	assert(file >= 0);
 	assert(!ISVALID(last_key));
 
-	/* open the file */
-	sts = parse_init_open(&parse, path);
-	if (sts)
-		return sts;
+	/* init the parse */
+	parse_init(&parse, file);
 
 	/* parse the file */
 	keyi = INVALID;
+	sts = 0;
 	while(!parse.finished && !sts) {
 
 		/* read one line */
@@ -1081,37 +1080,11 @@ static int read_database_internal(const char *path)
 			}
 		}
 	}
-	/* close the file */
-	close(parse.file);
-
 	/* is empty ? */
 	if (!sts && !ISVALID(last_key))
 		sts = parse_make_syntax_error(fs_file_empty, parse.lino);
 
 	return sts;
-}
-
-/*
- * Reads the database of 'path' filename.
- * The current data are first cleared then the file isread.
- * In case of error, the data are recleared, leave the state clear. 
- *
- * Requires: path != NULL
- *
- * Returns 0 in case of success or a negative error code in case of error.
- */
-static int read_database(const char *path)
-{
-	int result;
-
-	assert(path);
-
-	clear_all();
-	result = read_database_internal(path);
-	if (result)
-		clear_all();
-
-	return result;
 }
 
 #if ALLOWCOMPILE
@@ -1162,55 +1135,41 @@ static int save_compiled_database(const char *path)
 }
 
 /*
- * Reads the binary compiled database of 'path' filename.
+ * Reads the binary compiled database of 'file'
  *
  * CAUTION, in case of error the returned data state is undefined.
  *
- * Requires: path != NULL
+ * Requires: file >= 0
  *           && !ISVALID(last_key)
  *
  * Returns 0 in case of success or a negative error code in case of error.
  */
-static int read_compiled_database_internal(const char *path)
+static int read_compiled_database(int file)
 {
-	int file, result, head[header_size];
+	int head[header_size];
 	ssize_t readen;
 
 	/* checks */
-	assert(path);
+	assert(file >= 0);
 	assert(!ISVALID(last_key));
-
-	/* open the file for read */
-	file = open(path, O_RDONLY);
-	if (file < 0)
-		return file;
 
 	/* read the header */
 	readen = read(file, head, sizeof head);
-	if (readen < 0) {
-		result = -errno;
-		close(file);
-		return result;
-	}
-	if (readen < sizeof head) {
-		close(file);
-		return -EINTR;
-	}
+	if (readen < 0) 
+		return -errno;
+	if (readen < sizeof head)
+		return -ENOEXEC;
 
 	/* check magic data */
 	if (head[header_magic_tag_1] != HEADER_MAGIC_TAG_1
 		|| head[header_magic_tag_2] != HEADER_MAGIC_TAG_2
-		|| head[header_magic_version] != HEADER_MAGIC_VERSION) {
-		close(file);
-		return -EBADF;
-	}
+		|| head[header_magic_version] != HEADER_MAGIC_VERSION)
+		return -ENOEXEC;
 
 	/* allocate memory */
 	data.data = malloc(head[header_data_count] * sizeof * data.data);
-	if (!data.data) {
-		close(file);
+	if (!data.data)
 		return -ENOMEM;
-	}
 
 	/* init data */
 	data.count = head[header_data_count];
@@ -1220,65 +1179,77 @@ static int read_compiled_database_internal(const char *path)
 
 	/* read all now */
 	readen = read(file, data.data, data.count * sizeof * data.data);
-	result = readen < 0 ? -errno : 0;
-	close(file);
-	return result;
+	return readen < 0 ? -errno : 0;
 }
+#endif
 
 /*
- * Reads the binary compiled database of 'path' filename.
+ * Reads the database of 'file'
  *
- * Requires: path != NULL
+ * Requires: file >= 0
+ *           && !ISVALID(last_key)
  *
  * Returns 0 in case of success or a negative error code in case of error.
  */
-static int read_compiled_database(const char *path)
+static int read_database(int file)
 {
 	int result;
+	off_t pos;
 
-	assert(path);
+	assert(file >= 0);
+	assert(!ISVALID(last_key));
 
-	clear_all();
-	result = read_compiled_database_internal(path);
-	if (result)
+	pos = lseek(file, 0, SEEK_CUR);
+#if ALLOWCOMPILE
+	result = read_compiled_database(file);
+	if (result == -ENOEXEC && pos != ((off_t)-1)) {
+		if (pos == lseek(file, pos, SEEK_SET))
+			result = read_textual_database(file);
+		else
+			result = -errno;
+	}
+#else
+	result = read_textual_database(file);
+#endif
+
+	if (result) {
 		clear_all();
+		if (pos != ((off_t)-1))
+			lseek(file, pos, SEEK_SET);
+	}
 
-	assert(ISVALID(last_key) || result);
+	assert(result <= 0);
+	assert(smaunch_fs_has_database() == !result);
 
 	return result;
 }
 
-/*
- * Computes in 'buffer' of 'length' the compiled path name of the
- * database of 'path'.
- *
- * Returns 0 in case of success or else -ENAMETOOLONG
- */
-static int get_compiled_path(const char *path, char *buffer, int length)
+/* see comment in smaunch-fs.h */
+enum smaunch_fs_substitution_check_code smaunch_fs_check_substitution_pair(const char const *pattern, const char const *replacement)
 {
-	int i, j;
+	/* checks the pattern */
+	if (!pattern)
+		return fs_substitution_pattern_is_null;
+	if (*pattern++ != '%')
+		return fs_substitution_pattern_hasnt_percent;
+	if (!*pattern)
+		return fs_substitution_pattern_is_percent;
+	while (*pattern)
+		if (*pattern++ == '/')
+			return fs_substitution_pattern_has_slash;
 
-	i = 0;
-	j = 0;
-	while (path[i])
-		if (path[i++] == '/')
-			j = i;
+	/* checks the replacement */
+	if (!replacement)
+		return fs_substitution_replacement_is_null;
+	if (!*replacement)
+		return fs_substitution_replacement_is_empty;
+	while (*replacement)
+		if (*replacement++ == '/')
+			return fs_substitution_replacement_has_slash;
 
-	if (i + 5 >= length)
-		return -ENAMETOOLONG;
-
-	if (j)
-		memcpy(buffer, path, j);
-	buffer[j] = '.';
-	memcpy(buffer + j + 1, path + j, i - j);
-	buffer[i+1] = '.';
-	buffer[i+2] = 'b';
-	buffer[i+3] = 'i';
-	buffer[i+4] = 'n';
-	buffer[i+5] = 0;
-	return 0;
+	/* valid */
+	return fs_substitution_is_valid;
 }
-#endif
 
 /* see comment in smaunch-fs.h */
 int smaunch_fs_valid_substitutions(const char const *substs[][2], int count)
@@ -1292,20 +1263,9 @@ int smaunch_fs_valid_substitutions(const char const *substs[][2], int count)
 	if (!substs)
 		return 0;
 
-	for(i = 0 ; i < count ; i++) {
-		if (!substs[i][0])
+	for(i = 0 ; i < count ; i++)
+		if (smaunch_fs_check_substitution_pair(substs[i][0], substs[i][1]) != fs_substitution_is_valid)
 			return 0;
-		if (!substs[i][1])
-			return 0;
-		if (*substs[i][0] != '%')
-			return 0;
-		if (!*substs[i][1])
-			return 0;
-		if (strchr(substs[i][0],'/') != NULL)
-			return 0;
-		if (strchr(substs[i][1],'/') != NULL)
-			return 0;
-	}
 
 	return 1;
 }
@@ -1319,51 +1279,47 @@ void smaunch_fs_set_substitutions(const char const *substs[][2], int count)
 }
 
 /* see comment in smaunch-fs.h */
-int smaunch_fs_load_database(const char *path)
-{
-#if ALLOWCOMPILE
-	char cpldb[PATH_MAX];
-	struct stat sdb, scpl;
-	int result;
-
-	assert(path != NULL);
-
-	/* get info about database */
-	result = stat(path, &sdb);
-	if (result < 0)
-		return -errno;
-
-	/* get name of the compiled database */
-	result = get_compiled_path(path, cpldb, sizeof cpldb);
-	if (result)
-		return result;
-
-	/* test if available */
-	result = stat(cpldb, &scpl);
-	if (!result && sdb.st_mtime < scpl.st_mtime) {
-		/* try to use the compiled database */
-		result = read_compiled_database(cpldb);
-		if (!result)
-			return 0;
-	}
-
-	/* compile the database */
-	result = read_database(path);
-	if (!result)
-		save_compiled_database(cpldb);
-
-	return result;
-#else
-	assert(path);
-
-	return read_database(path);
-#endif
-}
-
-/* see comment in smaunch-fs.h */
 int smaunch_fs_has_database()
 {
 	return ISVALID(last_key);
+}
+
+/* see comment in smaunch-fs.h */
+int smaunch_fs_load_database(const char *path)
+{
+	int result, file;
+
+	assert(path != NULL);
+
+	/* clear all */
+	clear_all();
+
+	/* open the file for read */
+	file = open(path, O_RDONLY);
+	if (file < 0)
+		return file;
+
+	/* read and close */
+	result = read_database(file);
+	close(file);
+
+	assert(result <= 0);
+	assert(smaunch_fs_has_database() == !result);
+
+	return result;
+}
+
+/* see comment in smaunch-fs.h */
+int smaunch_fs_save_database_compiled(const char *path)
+{
+	assert(path);
+	assert(smaunch_fs_has_database());
+
+#if ALLOWCOMPILE
+	return save_compiled_database(path);
+#else
+	return -ENOTSUP;
+#endif
 }
 
 /* see comment in smaunch-fs.h */

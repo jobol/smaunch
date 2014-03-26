@@ -16,6 +16,37 @@ enum smaunch_fs_syntax_errors {
 };
 
 /*
+ * Definition of substitution check codes
+ */
+enum smaunch_fs_substitution_check_code {
+	fs_substitution_is_valid = 0,
+	fs_substitution_pattern_is_null,
+	fs_substitution_pattern_hasnt_percent,
+	fs_substitution_pattern_is_percent,
+	fs_substitution_pattern_has_slash,
+	fs_substitution_replacement_is_null,
+	fs_substitution_replacement_is_empty,
+	fs_substitution_replacement_has_slash
+};
+
+/*
+ * Tests if the substitution defined by 'pattern' and 'replacement'
+ * is a valid substition pair.
+ *
+ * Substitutions are valid if all the following conditions are true:
+ *    + pattern != NULL                   - pattern isn't null
+ *    + replacement != NULL               - replacement isn't null
+ *    + pattern[0] == '%'                 - pattern starts with %
+ *    + pattern[1] != '\0'                - pattern isn't "%"
+ *    + replacement[0] != '\0'            - replacement not empty
+ *    + strchr(pattern, '/') == NULL      - pattern doesn't contain /
+ *    + strchr(replacement, '/') == NULL  - replacement doesn't contain /
+ *
+ * Returns the matching substitution check code
+ */
+enum smaunch_fs_substitution_check_code smaunch_fs_check_substitution_pair(const char const *pattern, const char const *replacement);
+
+/*
  * Tests if the substitutions defined by 'substs' and 'count'
  * are valid.
  *
@@ -35,7 +66,7 @@ enum smaunch_fs_syntax_errors {
 int smaunch_fs_valid_substitutions(const char const *substs[][2], int count);
 
 /*
- * Set the substitutions to use.
+ * Sets the substitutions to use.
  * The substitution is the 'substs' array of 'count' arrayed-pairs of strings.
  * Each pair is made with a pattern starting with '%' at index 0 and its
  * substituted value at index 1.
@@ -45,7 +76,14 @@ int smaunch_fs_valid_substitutions(const char const *substs[][2], int count);
 void smaunch_fs_set_substitutions(const char const *substs[][2], int count);
 
 /*
- * Load the database of 'path'.
+ * Tests if a database is loaded and ready.
+ *
+ * Returns 1 if it is the case, 0 otherwise.
+ */
+int smaunch_fs_has_database();
+
+/*
+ * Loads the database of 'path'.
  *
  * Requires: path != NULL
  *
@@ -54,14 +92,17 @@ void smaunch_fs_set_substitutions(const char const *substs[][2], int count);
 int smaunch_fs_load_database(const char *path);
 
 /*
- * Tests if a database is loaded and ready.
+ * Saves the compiled version of database to 'path'.
  *
- * Returns 1 if it is the case, 0 otherwise.
+ * Requires: path != NULL
+ *           && smaunch_fs_has_database()
+ *
+ * Return 0 on success or a negative error code otherwise.
  */
-int smaunch_fs_has_database();
+int smaunch_fs_save_database_compiled(const char *path);
 
 /*
- * Test if the key is in the database.
+ * Tests if the key is in the database.
  *
  * Requires: key != NULL
  *           && smaunch_fs_has_database()
@@ -71,7 +112,7 @@ int smaunch_fs_has_database();
 int smaunch_fs_has_key(const char *key);
 
 /*
- * Start a new context definition.
+ * Starts a new context definition.
  */
 void smaunch_fs_context_start();
 
