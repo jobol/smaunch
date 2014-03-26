@@ -147,10 +147,10 @@ static int compile(char **argv, int (*load)(const char*), int (*save)(const char
 	/* save compiled now */
 	if (save) {
 		top(3);
-		status = save(inpath);
+		status = save(outpath);
 		top(4);
 		if (status)
-			return error(status, "saving compiled database", inpath, inpath);
+			return error(status, "saving compiled database", outpath, outpath);
 	}
 
 	top(5);
