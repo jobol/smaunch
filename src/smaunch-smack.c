@@ -373,6 +373,9 @@ static int context_apply(const smack_coda *codas, int file, int multi, int diff)
 	ls = (int)strlen(current_subject);
 
 	/* init the loop that iterate on objects */
+	rule = 0;
+	lr = 0;
+	coda = 0;
 	pos = 0;
 	index = object_count;
 	state = 1;
