@@ -51,15 +51,15 @@
 #define MAX_SUBST_COUNT		64
 
 static char usage_text[] =
-"smaunch compiling\n"
-"\n"
-" smaunch -cf --compile-fs     [infile [outfile]]\n"
-" smaunch -cs --compile-smack  [infile [outfile]]\n"
-"\n"
 "smaunch checking\n"
 "\n"
 " smaunch -Cf --check-fs       [infile]\n"
 " smaunch -Cs --check-smack    [infile]\n"
+"\n"
+"smaunch compiling\n"
+"\n"
+" smaunch -cf --compile-fs     [infile [outfile]]\n"
+" smaunch -cs --compile-smack  [infile [outfile]]\n"
 "\n"
 "smaunch launcher\n"
 "\n"
@@ -106,6 +106,8 @@ static int usage(int result)
 
 static int error(int err, const char *context, const char *dbsmack, const char *dbfs)
 {
+	/* TODO */
+	fprintf(stderr, "ERROR %d (%s - %s - %s)\n", err, context, dbsmack, dbfs);
 	return 1;
 }
 

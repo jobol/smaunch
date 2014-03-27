@@ -6,10 +6,12 @@ Linux launcher library combining smack and namespace
 Current state
 -------------
 
-Currently, it is not fully documented nor integrated.
+This project is in a premature state.
 
 It is a good proof of concept with solid base for futur
 integration.
+
+It still have to be fully documented.
 
 What does it do?
 ----------------
@@ -25,6 +27,34 @@ parts of the file system according to rules.
 
 This is done with 2 sub substems 'smaunch-smack' and
 'smaunch-fs'. Both of them are tuned by database.
+
+What is provided (currently)
+----------------------------
+
+When typing `make` in the subdirectory `src` it produces
+the executable `smaunch` (and its variants) and the static 
+library `libsmaunch.a` (and its variant).
+
+The database exemples `db.smack` and `db.fs` are actually dummy
+but are providing good entries to check and experiment.
+
+The variants of the program and the library are providing
+the following flavour: debug version (g), simulation version
+optimized (i) and simulation version debug (ig).
+The simulation versions are prompting their actions in
+place of doing it.
+
+The program `smaunch`
+---------------------
+
+This executable demonstrate the use of `libsmaunch`.
+
+It allows the following operations:
+- check the databases
+- compile the databases
+- launch a program within security restriction
+
+Type `smaunch --help' to get usage or/and RTFC.
 
 Database Format
 ---------------
@@ -67,3 +97,6 @@ same format:
 - at the beginning of a field 2 dashs are beginning a comment.
 
 keys aren't preceded by space or tab
+
+For security, smackfs should be remounted read only.
+
