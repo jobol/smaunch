@@ -9,6 +9,7 @@
 #include "smaunch-smack.h"
 #include "smaunch-fs.h"
 #include "smaunch.h"
+#include "parse.h"
 
 
 
@@ -106,8 +107,46 @@ static int usage(int result)
 
 static int error(int err, const char *context, const char *dbsmack, const char *dbfs)
 {
-	/* TODO */
-	fprintf(stderr, "ERROR %d (%s - %s - %s)\n", err, context, dbsmack, dbfs);
+	if (parse_is_syntax_error(err)) {
+		/* syntax error */
+		int line;
+		const char *file, *text;
+
+		line = parse_syntax_error_line(err);
+		switch (parse_syntax_error_number(err)) {
+
+		/* smack database errors */
+		case smack_line_too_long: file = dbsmack; text = "line too long"; break;
+		case smack_too_much_fields: file = dbsmack; text = "too much fields"; break;
+		case smack_extra_after_key: file = dbsmack; text = "extra field after key"; break;
+		case smack_object_without_access: file = dbsmack; text = "no permission set for the object"; break;
+		case smack_invalid_object: file = dbsmack; text = "invalid object label"; break;
+		case smack_extra_after_access: file = dbsmack; text = "extra field after permission"; break;
+		case smack_no_key_set: file = dbsmack; text = "object without key context"; break;
+		case smack_invalid_access: file = dbsmack; text = "invalid permission spec"; break;
+		case smack_file_empty: file = dbsmack; text = "the file has no data"; break;
+
+		/* fs database errors */
+		case fs_line_too_long: file = dbfs; text = "line too long"; break;
+		case fs_too_much_fields: file = dbfs; text = "too much fields"; break;
+		case fs_directory_incomplete: file = dbfs; text = "missing permission or directory in a rule"; break;
+		case fs_extra_after_key: file = dbfs; text = "extra field after the key"; break;
+		case fs_wrong_permission: file = dbfs; text = "unknown permission"; break;
+		case fs_bad_directory: file = dbfs; text = "the directory isn't absolute"; break;
+		case fs_bad_directory_depth: file = dbfs; text = "too many sub directories"; break;
+		case fs_too_many_fields: file = dbfs; text = "too much fields found"; break;
+		case fs_no_key_set: file = dbfs; text = "rule without key"; break;
+		case fs_file_empty: file = dbfs; text = "no key set"; break;
+		case fs_root_directory: file = dbfs; text = "root directory is forbiden"; break;
+
+		/* ??? */
+		default: file = "?"; text = file; break;
+		}
+		fprintf(stderr, "Syntax error %d while %s file %s line %d: %s\n", err, context, file, line, text);
+	} else {
+		/* other errors */
+		fprintf(stderr, "Error %d while %s: %s\n", err, context, strerror(-err));
+	}
 	return 1;
 }
 

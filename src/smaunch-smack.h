@@ -4,7 +4,9 @@
  * error codes reading databases
  */
 enum smaunch_smack_syntax_errors {
-	smack_extra_after_key = 100,	/* extra field after key */
+	smack_line_too_long = 100,		/* line too long, see {parse_constants}.parse_line_length */
+	smack_too_much_fields,			/* too much fields, see {parse_constants}.parse_field_count */
+	smack_extra_after_key,			/* extra field after key */
 	smack_object_without_access,	/* no permission set for the object */
 	smack_invalid_object,			/* invalid object label */
 	smack_extra_after_access,		/* extra field after permission */

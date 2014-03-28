@@ -4,15 +4,17 @@
  * error codes reading databases
  */
 enum smaunch_fs_syntax_errors {
-	fs_directory_incomplete = 200,	/* missing permission or directory in a rule */
-	fs_extra_after_key,				/* extra field after the key */
-	fs_wrong_permission,			/* unknown permission */
-	fs_bad_directory,				/* the directory isn't absolute */
-	fs_bad_directory_depth,			/* too many sub directories */
-	fs_too_many_fields,				/* too much fields found */
-	fs_no_key_set,					/* rule without key */
-	fs_file_empty,					/* no key set */
-	fs_root_directory,				/* root directory is forbiden */
+	fs_line_too_long = 200,		/* line too long, see {parse_constants}.parse_line_length */
+	fs_too_much_fields,			/* too much fields, see {parse_constants}.parse_field_count */
+	fs_directory_incomplete,	/* missing permission or directory in a rule */
+	fs_extra_after_key,			/* extra field after the key */
+	fs_wrong_permission,		/* unknown permission */
+	fs_bad_directory,			/* the directory isn't absolute */
+	fs_bad_directory_depth,		/* too many sub directories */
+	fs_too_many_fields,			/* too much fields found */
+	fs_no_key_set,				/* rule without key */
+	fs_file_empty,				/* no key set */
+	fs_root_directory,			/* root directory is forbiden */
 };
 
 /*

@@ -468,7 +468,12 @@ static int read_textual_database(int file)
 
 		/* read one line */
 		sts = parse_line(&parse);
-		if (!sts) {
+		if (sts) {
+			if (parse_is_syntax_error(sts))
+				sts = parse_make_syntax_error(
+						parse_syntax_error_number(sts) - parse_line_too_long + smack_line_too_long,
+						parse_syntax_error_line(sts));
+		} else {
 			switch (parse.fieldcount) {
 			case 0: /* nothing */
 				assert(parse.finished);
@@ -734,7 +739,7 @@ int smaunch_smack_load_database(const char *path)
 	/* open the file for read */
 	file = open(path, O_RDONLY);
 	if (file < 0)
-		return file;
+		return -errno;
 
 	/* read and close */
 	result = read_database(file);
