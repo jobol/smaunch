@@ -59,12 +59,17 @@ static int get(char **files)
 static int set(char *data, char **files)
 {
 	int nerr;
-	char buffer[16384];
 	int sts;
 	size_t len;
 	struct launch_spec spec;
+	char buffer[16384];
 
 	len = strlen(data);
+	if (len >= sizeof buffer) {
+		fprintf(stderr, "error while validating value: too long\n");
+		return 1;
+	}
+	strcpy(buffer, data);
 	launch_spec_init(&spec);
 	sts = launch_spec_parse(&spec, buffer);
 	if (sts) {
@@ -74,7 +79,7 @@ static int set(char *data, char **files)
 
 	nerr = 0;
 	while (*files) {
-		len = lsetxattr(*files, SMAUNCH_LAUNCHER_XATTR_NAME, buffer, len, 0);
+		len = lsetxattr(*files, SMAUNCH_LAUNCHER_XATTR_NAME, data, len, 0);
 		if (len < 0) {
 			fprintf(stderr, "error while setting attributes of %s: %s\n", *files, strerror(errno));
 			nerr++;

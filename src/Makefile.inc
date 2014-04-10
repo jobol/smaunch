@@ -47,14 +47,14 @@ endif
 smaunch$X-launcher: smaunch-launcher-$X.o libsmaunch$X.a
 	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 ifeq "$S" "0"
-	sudo /sbin/setcap cap_sys_admin,cap_mac_admin=+pe-i $@
+	sudo /sbin/setcap cap_sys_admin,cap_mac_admin,cap_fowner=+pe-i $@
 	sudo /usr/bin/setfattr -n security.keyzen -v keyzen.admin $@
 endif
 
 smaunch$X-attr: smaunch-attr-$X.o libsmaunch$X.a
 	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 ifeq "$S" "0"
-	sudo /sbin/setcap cap_sys_admin=+pe-i $@
+	sudo /sbin/setcap cap_sys_admin,cap_fowner=+pe-i $@
 endif
 
 libsmaunch$X.a: $(LIBOBJ)

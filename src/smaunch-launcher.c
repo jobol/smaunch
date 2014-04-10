@@ -74,7 +74,7 @@ int main(int argc, char **argv, char **env)
 	int len;
 	struct launch_spec spec;
 
-	sts = readlink(argv[0], buffer, 0);
+	sts = readlink(argv[0], buffer, sizeof buffer);
 	if (sts < 0)
 		return serror(-errno, "checking that is a link");
 
