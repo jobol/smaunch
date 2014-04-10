@@ -1230,6 +1230,31 @@ static int read_database(int file)
 }
 
 /* see comment in smaunch-fs.h */
+const char *smaunch_fs_substitution_check_code_string(enum smaunch_fs_substitution_check_code code)
+{
+	switch (code) {
+	case fs_substitution_is_valid:
+		return "valid (no error)";
+	case fs_substitution_pattern_is_null:
+		return "pattern is null";
+	case fs_substitution_pattern_hasnt_percent:
+		return "pattern not starting with '%'";
+	case fs_substitution_pattern_is_percent:
+		return "pattern made of '%' only";
+	case fs_substitution_pattern_has_slash:
+		return "pattern has '/'";
+	case fs_substitution_replacement_is_null:
+		return "replacement is null";
+	case fs_substitution_replacement_is_empty:
+		return "replacement is empty";
+	case fs_substitution_replacement_has_slash:
+		return "replacement has '/'";
+	default:
+		return "unknown error";
+	}
+}
+
+/* see comment in smaunch-fs.h */
 enum smaunch_fs_substitution_check_code smaunch_fs_check_substitution_pair(const char const *pattern, const char const *replacement)
 {
 	/* checks the pattern */

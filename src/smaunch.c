@@ -14,26 +14,123 @@
 #define SIMULATION 0
 #endif
 
+#if !defined(NOOVERRIDE)
+#define NOOVERRIDE 1
+#endif
+
+#if !defined(SMAUNCH_DB_DIR)
+#define SMAUNCH_DB_DIR		"/etc"
+#endif
+
+#if !defined(SMAUNCH_DB_NAME)
+#define SMAUNCH_DB_NAME		"smaunch"
+#endif
+
+#if !defined(SMAUNCH_DEFAULT_KEY)
+#define SMAUNCH_DEFAULT_KEY		"restricted"
+#endif
+
+#define DB_SMACK_TEXTUAL	SMAUNCH_DB_DIR "/" SMAUNCH_DB_NAME ".smack"
+#define DB_SMACK_COMPILED	SMAUNCH_DB_DIR "/." SMAUNCH_DB_NAME ".smack.bin"
+
+#define DB_FS_TEXTUAL		SMAUNCH_DB_DIR "/" SMAUNCH_DB_NAME ".fs"
+#define DB_FS_COMPILED		SMAUNCH_DB_DIR "/." SMAUNCH_DB_NAME ".fs.bin"
+
+#if !defined(SMAUNCH_DEFAULT_DB_SMACK)
+#define SMAUNCH_DEFAULT_DB_SMACK	DB_SMACK_COMPILED
+#endif
+
+#if !defined(SMAUNCH_DEFAULT_DB_FS)
+#define SMAUNCH_DEFAULT_DB_FS		DB_FS_COMPILED
+#endif
+
+#if NOOVERRIDE
+static const char database_for_smack[] = SMAUNCH_DEFAULT_DB_SMACK;
+static const char database_for_fs[] = SMAUNCH_DEFAULT_DB_FS;
+static const char default_fs_key[] = SMAUNCH_DEFAULT_KEY;
+#else
+static const char *database_for_smack = SMAUNCH_DEFAULT_DB_SMACK;
+static const char *database_for_fs = SMAUNCH_DEFAULT_DB_FS;
+static const char *default_fs_key = SMAUNCH_DEFAULT_KEY;
+#endif
+
+
 /* declaration of external environ variable */
 extern char **environ;
 
-/* memorize the default key */
-static const char *default_fs_key = 0;
+/* memorize the ready state */
+static int is_ready = 0;
 
 /* memorize the preparation state */
 static int has_prepared = 0;
 
 /* see comment in smaunch.h */
-int smaunch_init(const char *smackdb, const char *fsdb, const char *defskey)
+const char *smaunch_get_database_smack_path()
+{
+	return database_for_smack;
+}
+
+/* see comment in smaunch.h */
+const char *smaunch_get_database_fs_path()
+{
+	return database_for_fs;
+}
+
+/* see comment in smaunch.h */
+const char *smaunch_get_default_fs_key()
+{
+	return default_fs_key;
+}
+
+/* see comment in smaunch.h */
+int smaunch_set_database_smack_path(const char *smackdb)
+{
+	assert(smackdb);
+#if NOOVERRIDE
+	(void)smackdb;
+	return -ENOTSUP;
+#else
+	database_for_smack = smackdb;
+	return 0;
+#endif
+}
+
+/* see comment in smaunch.h */
+int smaunch_set_database_fs_path(const char *fsdb)
+{
+	assert(fsdb);
+#if NOOVERRIDE
+	(void)fsdb;
+	return -ENOTSUP;
+#else
+	database_for_fs = fsdb;
+	return 0;
+#endif
+}
+
+/* see comment in smaunch.h */
+int smaunch_set_default_fs_key(const char *key)
+{
+	assert(key);
+#if NOOVERRIDE
+	(void)key;
+	return -ENOTSUP;
+#else
+	if (smaunch_is_ready() && !smaunch_fs_has_key(key))
+		return -ENOENT;
+
+	default_fs_key = key;
+	return 0;
+#endif
+}
+
+/* see comment in smaunch.h */
+int smaunch_init()
 {
 	int result;
 
-	assert(smackdb);
-	assert(fsdb);
-	assert(defskey);
-
 	/* reset */
-	default_fs_key = 0;
+	is_ready = 0;
 	has_prepared = 0;
 
 #if !SIMULATION
@@ -44,28 +141,28 @@ int smaunch_init(const char *smackdb, const char *fsdb, const char *defskey)
 #endif
 
 	/* load smack db */
-	result = smaunch_smack_load_database(smackdb);
+	result = smaunch_smack_load_database(database_for_smack);
 	if (result < 0)
 		return result;
 
 	/* load fs db */
-	result = smaunch_fs_load_database(fsdb);
+	result = smaunch_fs_load_database(database_for_fs);
 	if (result < 0)
 		return result;
 
 	/* checks the default key */
-	if (!smaunch_fs_has_key(defskey))
+	if (!smaunch_fs_has_key(default_fs_key))
 		return -ENOENT;
 
-	/* record the default key */
-	default_fs_key = defskey;
+	/* record the ready state */
+	is_ready = 1;
 	return 0;
 }
 
 /* see comment in smaunch.h */
 int smaunch_is_ready()
 {
-	return !!default_fs_key;
+	return is_ready;
 }
 
 /* see comment in smaunch.h */

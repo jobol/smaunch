@@ -1,0 +1,550 @@
+
+KEY wifimanager
+Allows the application to manage the Wi-Fi system settings.
+It is a platform privilege level. For more information, see privileges.
+
+
+KEY wifi.wifidirect.read
+Allows the application to request Wi-Fi Direct information. 
+
+
+KEY wifi.wifidirect.admin
+Allows the application to manage Wi-Fi Direct on the device. 
+
+
+KEY wifi.read
+Allows the application to request Wi-Fi information. 
+
+
+KEY wifi.admin
+Allows the application to manage Wi-Fi on the device.
+
+
+KEY websetting
+Allows the application to manage the Web application settings, including removing all the cookies saved for this Web application.
+
+
+KEY web.service
+Allows the application to display Web content or use the Web content-related API. 
+
+
+KEY web.privacy
+Allows the application to manage the user data stored by the Web control or browser. 
+
+
+KEY wappush
+Allows the application to manage WAP push messages.
+It is a platform privilege level. For more information, see privileges.
+
+
+KEY videorecorder
+Allows the application to manage video recording with the camera. 
+
+
+KEY vibrator
+Allows the application to turn on and use vibrate. 
+
+
+KEY userprofile.write
+Allows the application to set the user profile. 
+
+
+KEY userprofile.read
+Allows the application to read the user profile.
+
+
+KEY useridentity
+Allows the application to access privacy information for user identification purposes.
+This privilege is deprecated. Please use [systemmanager] instead of it.
+
+
+KEY unlimitedstorage
+Allows the application to use the storage without size limitation for DB or files. 
+
+
+KEY uimanager
+Allows the application to manage UI properties.
+It is a platform privilege level. For more information, see privileges.
+
+
+KEY tizen
+Allows the application to use tizen web device api common module
+This privilege is deprecated. 
+
+
+KEY time
+Allows the application to get time and date information.
+This privilege is deprecated. 
+
+
+KEY telephonymanager
+Allows the application to configure the mobile networks.
+It is a platform privilege level. For more information, see privileges.
+
+
+KEY telephony
+Allows the application to retrieve telephony information, such as network, SIM, and call details. 
+
+
+KEY systemsetting.write
+Allows the application to change or write security or privacy settings.
+This privilege is deprecated. Please use [settingmanager.write] instead of it.
+
+
+KEY systemsetting.read
+Allows the application to read security or privacy settings.
+This privilege is deprecated. Please use [settingmanager.read] instead of it.
+
+
+KEY systemmanager
+Allows the application to read secure system information.
+It is a partner privilege level. For more information, see partner level privileges in the IDE.
+
+
+KEY systeminfo
+Allows the application to retrieve system information, such as network, SIM, and call details.
+This privilege is deprecated. Please use [telephony]  instead of it.
+
+
+KEY system
+Allows the application to read variety system information. 
+
+
+KEY socket
+Allows the application to communicate with other devices and servers.
+
+
+KEY smstrigger
+Allows the application to receive SMS messages from a specified port.
+It is a partner privilege level. For more information, see partner level privileges in the IDE.
+
+
+KEY shortcut.install
+Allows the application to request the Home app to add and remove shortcut. 
+
+
+KEY settingmanager.write
+Allows the application to change or write security or privacy settings.
+It is a platform privilege level. For more information, see privileges.
+
+
+KEY settingmanager.read
+Allows the application to read security or privacy settings.
+It is a platform privilege level. For more information, see privileges.
+
+
+KEY setting
+Allows the application to update or read user settings.
+
+
+KEY secureelement
+Allows the application to access tosecure smart card chip such as UICC/SIM, embedded Secure Element, or Secure SD card.
+
+
+KEY se
+Allows the application to access tosecure smart card chip such as UICC/SIM, embedded Secure Element, or Secure SD card.
+This privilege is deprecated. Please use [secureelement] instead of it.
+
+
+KEY push
+Allows the application to receive push notifications.
+
+
+KEY privilegemanager.read
+Allows the application to read privilege information.
+It is a partner privilege level. For more information, see partner level privileges in the IDE.
+
+
+KEY privacymanager.write
+Allows the application to change privacy settings.
+It is a platform privilege level. For more information, see privileges.
+
+
+KEY privacymanager.read
+Allows the application to read privacy settings.
+It is a platform privilege level. For more information, see privileges.
+
+
+KEY power
+Allows the application to hold and control power states.
+
+
+KEY platforminfo
+Allows the application to read information such as the platform or API version
+This privilege is deprecated. Please use [system] instead of it.
+
+
+KEY packagesetting
+Allows the application to set package configurations
+This privilege is deprecated. Please use [packagemanager.setting]  instead of it.
+
+
+KEY packagemanager.setting
+Allows the application to set package configurations.
+It is a platform privilege level. For more information, see privileges.
+
+
+KEY packagemanager.install
+Allows the application to install or uninstall application packages.
+It is a platform privilege level. For more information, see privileges.
+
+
+KEY packagemanager.info
+Allows the application to get detailed package information.
+It is a platform privilege level. For more information, see privileges.
+
+
+KEY packageinfo
+Allows the application to receive package information.
+This privilege is deprecated. Please use [package.info] instead of it.
+
+
+KEY package.info
+Allows the application to receive package information.
+
+
+KEY notificationmanager
+Allows the application to manage notifications.
+This privilege is deprecated. Please use [notification] instead of it.
+
+
+KEY notification.write
+Allows the application to update notification.
+This privilege is deprecated. Please use [notification] instead of it.
+
+
+KEY notification.read
+Allows the application to get notification
+This privilege is deprecated. 
+
+
+KEY notification
+Allows the application to provide user notifications, such as messages and badges
+
+
+KEY nfcmanager
+Allows the application to change NFC system settings, such as turning Reserved Push function on or off.
+It is a platform privilege level. For more information, see privileges.
+
+
+KEY nfc.tag
+Allows the application to read and write NFC tag information.
+
+
+KEY nfc.p2p
+Allows the application to push NFC messages to other devices.
+
+
+KEY nfc.common
+Allows the application to manage common NFC features.
+
+
+KEY nfc.admin
+Allows the application to change NFC status, such as turning NFC on or off.
+
+
+KEY networkmanager
+Allows the application to update system network accounts.
+It is a platform privilege level. For more information, see privileges.
+
+
+KEY networkbearerselection
+Allows the application to request/release a specific network connection.
+It is a partner privilege level. For more information, see partner level privileges in the IDE.
+
+
+KEY network.statistics.read
+Allows the application to read network statistics.
+This privilege is deprecated. Please use [network.statistics] instead of it.
+
+
+KEY network.statistics
+Allows the application to read network statistics.
+
+
+KEY network.connection
+Allows the application to manage network connections. 
+
+
+KEY network.account
+Allows the application to manage network accounts. 
+
+
+KEY netstatisticsmanager
+Allows the application to reset network statistics.
+It is a platform privilege level. For more information, see privileges.
+
+
+KEY messaging.write
+Allows the application to send sms, mms and email messages.
+
+
+KEY messaging.sms
+Allows the application to send and receive SMS messages, and retrieve SMS messages from the SMS message boxes.
+This privilege is deprecated. Please use [messaging.read] or [messaging.write] instead of it.
+
+
+KEY messaging.send
+Allows the applicatoin to send sms, mms and email messages
+This privilege is deprecated. Please use [messaging.write] instead of it.
+
+
+KEY messaging.read
+Allows the application to receive messages, and retrieve messages from the message boxes.
+
+
+KEY messaging.mms
+Allows the application to send MMS messages.
+This privilege is deprecated. Please use [messaging.read] or [messaging.write] instead of it.
+
+
+KEY messaging.email
+Allows the application to send email messages.
+This privilege is deprecated. Please use [messaging.read] or [messaging.write] instead of it.
+
+
+KEY mediacapture
+Allows the application to manage video recording and audio recording with camera or audio recorder. 
+
+
+KEY log
+Allows the application to use system log system (dlog)
+This privilege is deprecated. 
+
+
+KEY lockmanager
+Allows the application to unlock the phone.
+It is a platform privilege level. For more information, see privileges.
+
+
+KEY location
+Allows the application to use the user location data.
+
+
+KEY inputmanager
+Allows the application to generate touch and key events, and capture screens.
+It is a platform privilege level. For more information, see privileges.
+
+
+KEY imemanager
+Allows the application to manage the installed input methods.
+It is a platform privilege level. For more information, see privileges.
+
+
+KEY ime
+Allows the application to provide a way to input characters and symbols into an associated input field.
+It is a partner privilege level. For more information, see partner level privileges in the IDE.
+
+
+KEY http
+Allows the application to communicate with the HTTP server.
+
+
+KEY geolocationpermission.write
+Allows the application to delete geolocation permissions.
+It is a platform privilege level. For more information, see privileges.
+
+
+KEY geolocationpermission.read
+Allows the application to read geolocation permissions.
+It is a platform privilege level. For more information, see privileges.
+
+
+KEY fullscreen
+Allows the application to manage the screen to full screen. 
+
+
+KEY filesystem.write
+Allows the application to 'read and write' access a filesystem.
+
+
+KEY filesystem.read
+Allows the application to 'read-only' access a filesystem.
+
+
+KEY download
+Allows the application to manage HTTP downloads.
+
+
+KEY dns
+Allows the application to provide the Domain Name Service (DNS).
+
+
+KEY datasync
+Allows the application to synchronize device data to the server using the OMA DS 1.2 protocol.
+
+
+KEY datacontrol.consumer
+Allows the application to access specific data exported by other applications.
+It is a partner privilege level. For more information, see partner level privileges in the IDE.
+
+
+KEY customnetaccount
+Allows the application to use the Internet with a specified bearer.
+It is a partner privilege level. For more information, see partner level privileges in the IDE.
+
+
+KEY content.write
+Allows the application to create, update and delete content. 
+
+
+KEY content.read
+Allows the application to read content.
+
+
+KEY contact.write
+Allows the application to add, update, and delete contacts.
+
+
+KEY contact.read
+Allows the application to read contacts.
+
+
+KEY certificate.write
+Allows the application to add, update, and delete certificates.
+It is a partner privilege level. For more information, see partner level privileges in the IDE.
+
+
+KEY certificate.read
+Allows the application to read certificates.
+It is a partner privilege level. For more information, see partner level privileges in the IDE.
+
+
+KEY cellbroadcast
+Allows the application to manage the Cell Broadcast Service (CBS).
+It is a platform privilege level. For more information, see privileges.
+
+
+KEY camera
+Allows the application to manage the device cameras to preview and capture pictures. 
+
+
+KEY callhistory.write
+Allows the application to create, update, and delete call history.
+
+
+KEY callhistory.read
+Allows the application to read call logs.
+
+
+KEY callforward
+Allows the application to control the call forwarding service.
+It is a platform privilege level. For more information, see privileges.
+
+
+KEY calendar.write
+Allows the application to create, update, and delete schedule and task information.
+
+
+KEY calendar.read
+Allows the application to read schedule and task information.
+
+
+KEY bookmark.write
+Allows the application to create, update and delete bookmarks.
+It is a platform privilege level. For more information, see privileges.
+
+
+KEY bookmark.read
+Allows the application to read bookmarks.
+It is a platform privilege level. For more information, see privileges.
+
+
+KEY bluetoothmanager
+Allows the application to change Bluetooth settings related to privacy and security, such as the visible mode.
+It is a platform privilege level. For more information, see privileges.
+
+
+KEY bluetooth.spp
+Allows the application to use the Serial Port Profile (SPP), for example, to send serial data.
+
+
+KEY bluetooth.opp
+Allows the application to use the Object Push Profile (OPP), for example, to send files.
+
+
+KEY bluetooth.health
+Allows the application to use the Health Device Profile (HDP), for example, to send health data.
+
+
+KEY bluetooth.gap
+Allows the application to use the Generic Access Profile (GAP), for example, to scan for and pair devices.
+
+
+KEY bluetooth.admin
+Allows the application to change Bluetooth settings, such as turning Bluetooth on or off, and setting the local device name.
+
+
+KEY audiorecorder
+Allows the application to manage audio recording.
+
+
+KEY audiomanager.route
+Allows the application to set audio input and output routes and receive notifications about route events.
+It is a partner privilege level. For more information, see partner level privileges in the IDE.
+
+
+KEY appwidgetprovider.install
+Allows the application to add the specified AppWidget to the Home screen.
+
+
+KEY appusage
+Allows the application to receive notifications about foreground application changes.
+It is a partner privilege level. For more information, see partner level privileges in the IDE.
+
+
+KEY appsetting
+Allows the application to manage application settings.
+It is a platform privilege level. For more information, see privileges.
+
+
+KEY appmanager.setting
+Allows the application to read and update default application preferences.
+It is a platform privilege level. For more information, see privileges.
+
+
+KEY appmanager.launch
+Allows the application to open another application conditionally.
+It is a partner privilege level. For more information, see partner level privileges in the IDE.
+
+
+KEY appmanager.kill
+Allows the application to close another application.
+It is a partner privilege level. For more information, see partner level privileges in the IDE.
+
+
+KEY appmanager.certificate
+Allows the application to get specified application certificates.
+It is a partner privilege level. For more information, see partner level privileges in the IDE.
+
+
+KEY application.read
+Allows the application to read application information.
+This privilege is deprecated. 
+
+
+KEY application.launch
+Allows the application to be opened conditionally or to open another application
+
+
+KEY application.kill
+Allows the application to close another application.
+This privilege is deprecated. Please use [appmanager.kill] instead of it.
+
+
+KEY application.info
+Allows the application to retrieve information related to other applications.
+
+
+KEY alarm
+Allows the application to set an alarm and wake up the device at the scheduled time.
+
+
+KEY account.write
+Allows the application to create, update, and delete accounts.
+
+
+KEY account.read
+Allows the application to read accounts. 
+
+

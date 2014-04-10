@@ -32,6 +32,11 @@ enum smaunch_fs_substitution_check_code {
 };
 
 /*
+ * Returns a string for the given check 'code'.
+ */
+const char *smaunch_fs_substitution_check_code_string(enum smaunch_fs_substitution_check_code code);
+
+/*
  * Tests if the substitution defined by 'pattern' and 'replacement'
  * is a valid substition pair.
  *

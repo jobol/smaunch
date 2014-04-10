@@ -13,41 +13,9 @@
 
 
 
-
-
-
-
-
 #if !defined(MEASURETIMES)
 #define MEASURETIMES 1
 #endif
-
-#if !defined(ALLOWOVERRIDE)
-#define ALLOWOVERRIDE 1
-#endif
-
-
-
-
-#if !defined(SMAUNCH_DB_DIR)
-#define SMAUNCH_DB_DIR		"/etc"
-#endif
-
-#if !defined(SMAUNCH_DB_NAME)
-#define SMAUNCH_DB_NAME		"smaunch"
-#endif
-
-#if !defined(SMAUNCH_DEFKEY)
-#define SMAUNCH_DEFKEY		"restricted"
-#endif
-
-#define DB_SMACK_TEXTUAL	SMAUNCH_DB_DIR "/" SMAUNCH_DB_NAME ".smack"
-#define DB_SMACK_COMPILED	SMAUNCH_DB_DIR "/." SMAUNCH_DB_NAME ".smack.bin"
-
-#define DB_FS_TEXTUAL		SMAUNCH_DB_DIR "/" SMAUNCH_DB_NAME ".fs"
-#define DB_FS_COMPILED		SMAUNCH_DB_DIR "/." SMAUNCH_DB_NAME ".fs.bin"
-
-#define DEFAULT_KEY			SMAUNCH_DEFKEY
 
 #define MAX_SUBST_COUNT		64
 
@@ -64,15 +32,11 @@ static char usage_text[] =
 "\n"
 "smaunch launcher\n"
 "\n"
-#if ALLOWOVERRIDE
 " smaunch options... [%substitutions...] [keys...] [-- command args]\n"
 "\n"
-" opt: -df --db-fs     path    (default: "DB_FS_COMPILED")\n"
-"      -ds --db-smack  path    (default: "DB_SMACK_COMPILED")\n"
-"      -k  --defkey    key     (default: "DEFAULT_KEY"\n"
-#else
-" smaunch [%substitutions...] [keys...] [-- command args]\n"
-#endif
+" opt: -df --db-fs     path\n"
+"      -ds --db-smack  path\n"
+"      -k  --defkey    key\n"
 ;
 
 static const char *substs[MAX_SUBST_COUNT][2];
@@ -206,19 +170,13 @@ static int compile(char **argv, int (*load)(const char*), int (*save)(const char
 static int addsubpair(const char *pattern, const char *replacement)
 {
 	int i;
+	enum smaunch_fs_substitution_check_code code;
 
 	/* validate */
-	switch(smaunch_fs_check_substitution_pair(pattern, replacement)) {
-	case fs_substitution_is_valid:
-		break;
-	case fs_substitution_pattern_is_null:
-	case fs_substitution_pattern_hasnt_percent:
-	case fs_substitution_pattern_is_percent:
-	case fs_substitution_pattern_has_slash:
-	case fs_substitution_replacement_is_null:
-	case fs_substitution_replacement_is_empty:
-	case fs_substitution_replacement_has_slash:
-	default:
+	code = smaunch_fs_check_substitution_pair(pattern, replacement);
+	if (code != fs_substitution_is_valid) {
+		fprintf(stderr, "Error of substitution: %s (pattern=\"%s\", replacement=\"%s\")\n",
+			smaunch_fs_substitution_check_code_string(code), pattern, replacement);
 		return 1;
 	}
 
@@ -226,12 +184,8 @@ static int addsubpair(const char *pattern, const char *replacement)
 	i = nsubsts;
 	while (i)
 		if (!strcmp(substs[--i][0], pattern)) {
-#if ALLOWOVERRIDE
 			substs[i][1] = replacement;
 			return 0;
-#else
-			return 1;
-#endif
 		}
 
 	/* add */
@@ -267,34 +221,35 @@ static int addsubdef()
 static int launch(char** argv, char **env)
 {
 	int status;
-	char *dbfs = DB_FS_COMPILED;
-	char *dbsmack = DB_SMACK_COMPILED;
-	char *defkey = DEFAULT_KEY;
 	char **keys;
 	char **command;
 
 	top(0);
 
-#if ALLOWOVERRIDE
 	/* get options */
 	while (argv[0] && argv[0][0] == '-' && (argv[0][1] != '-' || argv[0][2])) {
 		if (!strcmp(*argv, "-df") || !strcmp(*argv, "--db-fs")) {
-			dbfs = *++argv;
-			if (!dbfs)
+			if (!*++argv)
 				return 1;
+			status = smaunch_set_database_fs_path(*argv);
+			if (status)
+				return error(status, "setting filesystem database", 0, 0);
 		} else if (!strcmp(*argv, "-ds") || !strcmp(*argv, "--db-smack")) {
-			dbsmack = *++argv;
-			if (!dbsmack)
+			if (!*++argv)
 				return 1;
+			status = smaunch_set_database_smack_path(*argv);
+			if (status)
+				return error(status, "setting smack database", 0, 0);
 		} else if (!strcmp(*argv, "-k") || !strcmp(*argv, "--defkey")) {
-			defkey = *++argv;
-			if (!defkey)
+			if (!*++argv)
 				return 1;
+			status = smaunch_set_default_fs_key(*argv);
+			if (status)
+				return error(status, "setting default filesystem key", 0, 0);
 		} else
 			return usage(1);
 		argv++;
 	}
-#endif
 
 	/* set the substitutions */
 	if (addsubdef())
@@ -324,10 +279,10 @@ static int launch(char** argv, char **env)
 	/* invocation now */
 
 	top(1);
-	status = smaunch_init(dbsmack, dbfs, defkey);
+	status = smaunch_init();
 	top(2);
 	if (status)
-		return error(status, "initializing", dbsmack, dbfs);
+		return error(status, "initializing", smaunch_get_database_smack_path(), smaunch_get_database_fs_path());
 
 	top(3);
 #if MEASURETIMES
@@ -337,7 +292,7 @@ static int launch(char** argv, char **env)
 #endif
 	top(4);
 	if (status)
-		return error(status, "launching", dbsmack, dbfs);
+		return error(status, "launching", smaunch_get_database_smack_path(), smaunch_get_database_fs_path());
 
 	top(5);
 

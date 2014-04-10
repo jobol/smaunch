@@ -1,17 +1,60 @@
 /* 2014, Copyright Intel & Jose Bollo <jose.bollo@open.eurogiciel.org>, license MIT */
 
 /*
- * Initializes Smaunch to use the databases of path 'smackdb'
- * (for the smack rules)  and 'fsdb' (for the filesystem rules)
- * and the default fs-key 'defskey'.
+ * Returns the current path of the database for smack rules.
+ */
+const char *smaunch_get_database_smack_path();
+
+/*
+ * Returns the current path of the database for filesystem rules.
+ */
+const char *smaunch_get_database_fs_path();
+
+/*
+ * Returns the current default key for filesystem rules.
+ */
+const char *smaunch_get_default_fs_key();
+
+/*
+ * Set the path of the database of smack rules.
+ *
+ * It will take effect at the next init.
  *
  * Requires: smackdb != NULL
- *           && fsdb != NULL
- *           && defskey != NULL
+ *
+ * Returns 0 on success or -ENOTSUP if the default key can't be changed.
+ */
+int smaunch_set_database_smack_path(const char *smackdb);
+
+/*
+ * Set the path of the database of filesystem rules.
+ *
+ * It will take effect at the next init.
+ *
+ * Requires: fsdb != NULL
+ *
+ * Returns 0 on success or -ENOTSUP if the default key can't be changed.
+ */
+int smaunch_set_database_fs_path(const char *fsdb);
+
+/*
+ * Set the default key for filesystem rules.
+ *
+ * Requires: key != NULL
+ *
+ * Ensure: !smaunch_is_ready()
+ *
+ * Returns 0 on success or -ENOTSUP if the default key can't be changed
+ * or -ENOENT if smaunch_is_ready() and the key doesn't exist.
+ */
+int smaunch_set_default_fs_key(const char *key);
+
+/*
+ * Initializes Smaunch using the current databases and default key.
  *
  * Returns 0 on success or a negative error code on failure
  */
-int smaunch_init(const char *smackdb, const char *fsdb, const char *defskey);
+int smaunch_init();
 
 /*
  * Tests if Smaunch is initialized and ready.
