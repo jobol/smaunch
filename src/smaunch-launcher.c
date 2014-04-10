@@ -67,6 +67,14 @@ static int error(int err, const char *context)
 	return serror(err, context);
 }
 
+static void add_predef_substs(struct launch_spec *spec)
+{
+	assert(spec->nsubsts + 10 < launch_spec_max_subst_count);
+	spec->substs[spec->nsubsts][0] = "%user";
+	spec->substs[spec->nsubsts][1] = getenv("USER");
+	spec->nsubsts++;
+}
+
 int main(int argc, char **argv, char **env)
 {
 	char buffer[16384];
@@ -84,6 +92,7 @@ int main(int argc, char **argv, char **env)
 
 	buffer[len] = 0;
 	launch_spec_init(&spec);
+    add_predef_substs(&spec);
 	sts = launch_spec_parse(&spec, buffer);
 	if (sts)
 		return serror(sts, "parsing the launch spec");
@@ -93,14 +102,14 @@ int main(int argc, char **argv, char **env)
 		return serror(-EINVAL, "validating substitutions");
 	smaunch_fs_set_substitutions(spec.substs, spec.nsubsts);
 
+	sts = launch_spec_prepare_keys(&spec);
+	if (sts)
+		return serror(sts, "preparing the keys");
+
 	sts = keyzen_self_set_keys(spec.keys, spec.nkeys);
 	if (sts)
 		return serror(sts, "setting the keys to keyzen");
 
-	sts = launch_spec_prepare_keys(&spec);
-	if (sts)
-		return serror(sts, "preparing the keys");
-		
 	sts = smaunch_init();
 	if (sts)
 		return error(sts, "initialising smaunch");
