@@ -74,7 +74,7 @@ int smaunch_is_ready();
  *
  * NOTE: That API verb will probably be removed
  */
-int smaunch_prepare(char **keys);
+int smaunch_prepare(const char **keys);
 
 /*
  * Tests if Smaunch has prepared rules ready to apply.
@@ -118,7 +118,7 @@ int smaunch_apply();
  * Dont return in case of success.
  * Return a negative error code in case of failure.
  */
-int smaunch_exec(char **keys, const char *filename, char **argv, char **envp);
+int smaunch_exec(const char **keys, const char *filename, char **argv, char **envp);
 
 /*
  * Combines the following actions:
@@ -142,7 +142,7 @@ int smaunch_exec(char **keys, const char *filename, char **argv, char **envp);
  *
  * Return 0 if successfully forked and launched or a negative error code in case of failure.
  */
-int smaunch_fork_exec(char **keys, const char *filename, char **argv, char **envp);
+int smaunch_fork_exec(const char **keys, const char *filename, char **argv, char **envp);
 
 
 

@@ -116,7 +116,7 @@ int main(int argc, char **argv, char **env)
 	if (sts)
 		return error(sts, "initialising smaunch");
 
-	sts = smaunch_exec((char**)keys, spec.exec_target, argv, env);
+	sts = smaunch_exec(keys, spec.exec_target, argv, env);
 	assert(sts);
 	return serror(sts, "launching");
 }

@@ -9,6 +9,7 @@
 #include "smaunch-smack.h"
 #include "smaunch-fs.h"
 #include "smaunch.h"
+#include "keyzen.h"
 #include "parse.h"
 
 
@@ -42,26 +43,6 @@ static char usage_text[] =
 static const char *substs[MAX_SUBST_COUNT][2];
 static int nsubsts = 0;
 static char *default_command[] = { "/bin/sh", NULL };
-
-#if MEASURETIMES
-
-#include <sys/time.h>
-
-static struct timeval  tops[20];
-
-#define top(x)     gettimeofday(&tops[x],NULL)
-#define tus(x)     ((double)(tops[x].tv_sec) * (double)1e6 + (double)(tops[x].tv_usec))
-#define dur(x,y)   (tus(y) - tus(x))
-#define ptm(...)   fprintf(stderr, __VA_ARGS__)
-#define pdu(t,x,y) ptm("timing: %10s = %9.3lf ms\n", t, dur(x,y)/1000)
-
-#else
-
-#define top(x)
-#define ptm(...)
-#define pdu(t,x,y)
-
-#endif
 
 static int usage(int result)
 {
@@ -121,8 +102,6 @@ static int compile(char **argv, int (*load)(const char*), int (*save)(const char
 	static const char stdinput[] = "/dev/stdin";
 	static const char stdoutput[] = "/dev/stdout";
 
-	top(0);
-
 	/* get the paths */
 	inpath = *argv;
 	if (!inpath) {
@@ -143,26 +122,16 @@ static int compile(char **argv, int (*load)(const char*), int (*save)(const char
 	}
 
 	/* load now */
-	top(1);
 	status = load(inpath);
-	top(2);
 	if (status)
 		return error(status, save ? "loading database" : "checking database", inpath, inpath);
 
 	/* save compiled now */
 	if (save) {
-		top(3);
 		status = save(outpath);
-		top(4);
 		if (status)
 			return error(status, "saving compiled database", outpath, outpath);
 	}
-
-	top(5);
-
-	pdu("load", 1, 2);
-	if (save) pdu("save", 3, 4);
-	pdu("all", 0, 5);
 
 	return 0;
 }
@@ -221,10 +190,9 @@ static int addsubdef()
 static int launch(char** argv, char **env)
 {
 	int status;
-	char **keys;
+	int nkeys;
+	const char **keys;
 	char **command;
-
-	top(0);
 
 	/* get options */
 	while (argv[0] && argv[0][0] == '-' && (argv[0][1] != '-' || argv[0][2])) {
@@ -261,48 +229,36 @@ static int launch(char** argv, char **env)
 	smaunch_fs_set_substitutions(substs, nsubsts);
 
 	/* set keys */
-	keys = argv;
-	if (argv[0] && strcmp(argv[0], "--")) {
-		while (argv[0] && strcmp(argv[0], "--"))
+	keys = (const char **)argv;
+	nkeys = 0;
+	if (argv[0]) {
+		while (argv[0]) {
+			if (!strcmp(argv[0], "--")) {
+				*argv++ = 0;
+				break;
+			}
 			if (!**argv++)
 				return usage(1);
-	} else {
-		while (*keys)
-			keys++;
+			nkeys++;
+		}
 	}
 
 	/* set the command */
-	if (argv[0])
-		argv++;
 	command = argv[0] ? argv : default_command;
 
 	/* invocation now */
 
-	top(1);
 	status = smaunch_init();
-	top(2);
 	if (status)
 		return error(status, "initializing", smaunch_get_database_smack_path(), smaunch_get_database_fs_path());
 
-	top(3);
-#if MEASURETIMES
-	status = smaunch_fork_exec(keys, command[0], command, env);
-#else
-	status = smaunch_exec(keys, command[0], command, env);
-#endif
-	top(4);
+	status = keyzen_self_set_keys(keys, nkeys);
 	if (status)
-		return error(status, "launching", smaunch_get_database_smack_path(), smaunch_get_database_fs_path());
+		return error(status, "set keyzen", smaunch_get_database_smack_path(), smaunch_get_database_fs_path());
 
-	top(5);
+	status = smaunch_exec(keys, command[0], command, env);
 
-	pdu("init", 1, 2);
-	pdu("launch", 3, 4);
-	pdu("all", 0, 5);
-
-	wait(&status);
-
-	return 0;
+	return error(status, "launching", smaunch_get_database_smack_path(), smaunch_get_database_fs_path());
 }
 
 

@@ -166,7 +166,7 @@ int smaunch_is_ready()
 }
 
 /* see comment in smaunch.h */
-int smaunch_prepare(char **keys)
+int smaunch_prepare(const char **keys)
 {
 	int result, setdef, rsm, rfs;
 
@@ -283,7 +283,7 @@ int smaunch_apply()
 }
 
 /* see comment in smaunch.h */
-int smaunch_exec(char **keys, const char *filename, char **argv, char **envp)
+int smaunch_exec(const char **keys, const char *filename, char **argv, char **envp)
 {
 	int result;
 
@@ -305,7 +305,7 @@ int smaunch_exec(char **keys, const char *filename, char **argv, char **envp)
 }
 
 /* see comment in smaunch.h */
-int smaunch_fork_exec(char **keys, const char *filename, char **argv, char **envp)
+int smaunch_fork_exec(const char **keys, const char *filename, char **argv, char **envp)
 {
 	volatile int result;
 	pid_t cpid;
