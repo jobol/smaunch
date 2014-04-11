@@ -186,19 +186,42 @@ int launch_spec_generate(struct launch_spec *spec, char **buffer, int *length)
 	return 0;
 }
 
-int launch_spec_prepare_keys(struct launch_spec *spec)
+int launch_spec_get_keys(struct launch_spec *spec, const char **keys, int count)
 {
-	int	i;
+	int	r, w, n;
 
-	i = spec->nkeys;
-	if (i >= sizeof spec->keys / sizeof spec->keys[0])
+	n = spec->nkeys;
+	if (n >= count)
 		return -E2BIG;
 
-	spec->keys[i] = 0;
-	while (i)
-		spec->keys[--i]++;
+	r = 0;
+	w = 0;
+	while (r < n) {
+		switch (spec->keys[r][0]) {
+		case '!':
+		case '+':
+		case '*':
+		case '=':
+			if (w >= count)
+				return -E2BIG;
+			keys[w++] = spec->keys[r] + 1;
+			break;
+		case '-':
+			break;
+		default:
+			/* not needed, should be an error, but ... */
+			if (w >= count)
+				return -E2BIG;
+			keys[w++] = spec->keys[r];
+			break;
+		}
+		r++;
+	}
+	if (w >= count)
+		return -E2BIG;
+	keys[w] = 0;
 
-	return 0;
+	return w;
 }
 
 

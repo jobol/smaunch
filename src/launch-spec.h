@@ -21,5 +21,5 @@ int launch_spec_parse(struct launch_spec *spec, char *buffer);
 
 int launch_spec_generate(struct launch_spec *spec, char **buffer, int *length);
 
-int launch_spec_prepare_keys(struct launch_spec *spec);
+int launch_spec_get_keys(struct launch_spec *spec, const char **keys, int count);
 

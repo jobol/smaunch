@@ -78,9 +78,11 @@ static void add_predef_substs(struct launch_spec *spec)
 int main(int argc, char **argv, char **env)
 {
 	char buffer[16384];
+	int nkeys;
 	int sts;
 	int len;
 	struct launch_spec spec;
+	const char *keys[launch_spec_max_subst_count+1];
 
 	sts = readlink(argv[0], buffer, sizeof buffer);
 	if (sts < 0)
@@ -102,11 +104,11 @@ int main(int argc, char **argv, char **env)
 		return serror(-EINVAL, "validating substitutions");
 	smaunch_fs_set_substitutions(spec.substs, spec.nsubsts);
 
-	sts = launch_spec_prepare_keys(&spec);
-	if (sts)
-		return serror(sts, "preparing the keys");
+	nkeys = launch_spec_get_keys(&spec, keys, sizeof keys / sizeof keys[0]);
+	if (nkeys < 0)
+		return serror(nkeys, "preparing the keys");
 
-	sts = keyzen_self_set_keys(spec.keys, spec.nkeys);
+	sts = keyzen_self_set_keys(keys, nkeys);
 	if (sts)
 		return serror(sts, "setting the keys to keyzen");
 
@@ -114,7 +116,7 @@ int main(int argc, char **argv, char **env)
 	if (sts)
 		return error(sts, "initialising smaunch");
 
-	sts = smaunch_exec((char**)spec.keys, spec.exec_target, argv, env);
+	sts = smaunch_exec((char**)keys, spec.exec_target, argv, env);
 	assert(sts);
 	return serror(sts, "launching");
 }
