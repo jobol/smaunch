@@ -26,12 +26,16 @@
 
 #define mflgr(x,v,o) (((x)==(v)) ? #v : (o))
 #define mflg(x)     mflgr(x,MS_BIND,\
+					mflgr(x,MS_BIND|MS_REC,\
 					mflgr(x,MS_MOVE,\
+					mflgr(x,MS_MOVE|MS_REC,\
 					mflgr(x,MS_SLAVE|MS_REC,\
 					mflgr(x,MS_REMOUNT|MS_RDONLY,\
+					mflgr(x,MS_REMOUNT|MS_REC|MS_RDONLY,\
 					mflgr(x,MS_BIND|MS_REMOUNT|MS_RDONLY,\
+					mflgr(x,MS_BIND|MS_REC|MS_REMOUNT|MS_RDONLY,\
 					mflgr(x,0,\
-					"???"))))))
+					"???"))))))))))
 #define unshare(x)           (printf("unshare(%s)\n",#x), 0)
 #define mount(f,t,k,c,x)     (printf("mount(%s, %s, %s, %s, %s)\n",f,t,k,mflg(c),#x), 0)
 #define mkdir(d,t)           (printf("mkdir(%s, %s)\n",d,#t), 0)
@@ -865,7 +869,7 @@ static int apply_sub_mount(int diri, enum actions action, const struct mountdirs
 	assert(action == $(diri)[dir_action]);
 
 	/* set the bind flag */
-	bind = action != mount_none ? MS_BIND : 0;
+	bind = action != mount_none ? MS_BIND|MS_REC : 0;
 
 	/* apply the mount */
 	result = mount(mdirs->origin.path, mdirs->scratch.path, "ramfs", bind, 0);
@@ -943,7 +947,7 @@ static int apply_main_mount(int diri)
 		return result;
 
 	/* move the hierachy now */
-	result = mount(scratch, origin, "", MS_MOVE, 0);
+	result = mount(scratch, origin, "", MS_MOVE|MS_REC, 0);
 	return result;
 }
 
