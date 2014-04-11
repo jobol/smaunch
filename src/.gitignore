@@ -2,6 +2,14 @@ smaunch
 smaunchg
 smaunchi
 smaunchig
+smaunch-attr
+smaunchg-attr
+smaunchi-attr
+smaunchig-attr
+smaunch-launcher
+smaunchg-launcher
+smaunchi-launcher
+smaunchig-launcher
 *.bin
 *.a
 *.o
