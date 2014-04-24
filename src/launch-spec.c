@@ -204,7 +204,7 @@ int launch_spec_get_keys(struct launch_spec *spec, const char **keys, int count)
 		case '=':
 			if (w >= count)
 				return -E2BIG;
-			keys[w++] = spec->keys[r] + 1;
+			keys[w++] = spec->keys[r];
 			break;
 		case '-':
 			break;
