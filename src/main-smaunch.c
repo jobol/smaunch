@@ -6,7 +6,6 @@
 #include <errno.h>
 #include <sys/wait.h>
 
-#include "smaunch-smack.h"
 #include "smaunch-fs.h"
 #include "smaunch.h"
 #include "parse.h"
@@ -41,9 +40,6 @@
 #define SMAUNCH_DEFKEY		"restricted"
 #endif
 
-#define DB_SMACK_TEXTUAL	SMAUNCH_DB_DIR "/" SMAUNCH_DB_NAME ".smack"
-#define DB_SMACK_COMPILED	SMAUNCH_DB_DIR "/." SMAUNCH_DB_NAME ".smack.bin"
-
 #define DB_FS_TEXTUAL		SMAUNCH_DB_DIR "/" SMAUNCH_DB_NAME ".fs"
 #define DB_FS_COMPILED		SMAUNCH_DB_DIR "/." SMAUNCH_DB_NAME ".fs.bin"
 
@@ -55,12 +51,10 @@ static char usage_text[] =
 "smaunch checking\n"
 "\n"
 " smaunch -Cf --check-fs       [infile]\n"
-" smaunch -Cs --check-smack    [infile]\n"
 "\n"
 "smaunch compiling\n"
 "\n"
 " smaunch -cf --compile-fs     [infile [outfile]]\n"
-" smaunch -cs --compile-smack  [infile [outfile]]\n"
 "\n"
 "smaunch launcher\n"
 "\n"
@@ -68,7 +62,6 @@ static char usage_text[] =
 " smaunch options... [%substitutions...] [keys...] [-- command args]\n"
 "\n"
 " opt: -df --db-fs     path    (default: "DB_FS_COMPILED")\n"
-"      -ds --db-smack  path    (default: "DB_SMACK_COMPILED")\n"
 "      -k  --defkey    key     (default: "DEFAULT_KEY"\n"
 #else
 " smaunch [%substitutions...] [keys...] [-- command args]\n"
@@ -105,7 +98,7 @@ static int usage(int result)
 	return result;
 }
 
-static int error(int err, const char *context, const char *dbsmack, const char *dbfs)
+static int error(int err, const char *context, const char *dbfs)
 {
 	if (parse_is_syntax_error(err)) {
 		/* syntax error */
@@ -114,17 +107,6 @@ static int error(int err, const char *context, const char *dbsmack, const char *
 
 		line = parse_syntax_error_line(err);
 		switch (parse_syntax_error_number(err)) {
-
-		/* smack database errors */
-		case smack_line_too_long: file = dbsmack; text = "line too long"; break;
-		case smack_too_much_fields: file = dbsmack; text = "too much fields"; break;
-		case smack_extra_after_key: file = dbsmack; text = "extra field after key"; break;
-		case smack_object_without_access: file = dbsmack; text = "no permission set for the object"; break;
-		case smack_invalid_object: file = dbsmack; text = "invalid object label"; break;
-		case smack_extra_after_access: file = dbsmack; text = "extra field after permission"; break;
-		case smack_no_key_set: file = dbsmack; text = "object without key context"; break;
-		case smack_invalid_access: file = dbsmack; text = "invalid permission spec"; break;
-		case smack_file_empty: file = dbsmack; text = "the file has no data"; break;
 
 		/* fs database errors */
 		case fs_line_too_long: file = dbfs; text = "line too long"; break;
@@ -183,7 +165,7 @@ static int compile(char **argv, int (*load)(const char*), int (*save)(const char
 	status = load(inpath);
 	top(2);
 	if (status)
-		return error(status, save ? "loading database" : "checking database", inpath, inpath);
+		return error(status, save ? "loading database" : "checking database", inpath);
 
 	/* save compiled now */
 	if (save) {
@@ -191,7 +173,7 @@ static int compile(char **argv, int (*load)(const char*), int (*save)(const char
 		status = save(outpath);
 		top(4);
 		if (status)
-			return error(status, "saving compiled database", outpath, outpath);
+			return error(status, "saving compiled database", outpath);
 	}
 
 	top(5);
@@ -268,7 +250,6 @@ static int launch(char** argv, char **env)
 {
 	int status;
 	char *dbfs = DB_FS_COMPILED;
-	char *dbsmack = DB_SMACK_COMPILED;
 	char *defkey = DEFAULT_KEY;
 	char **keys;
 	char **command;
@@ -281,10 +262,6 @@ static int launch(char** argv, char **env)
 		if (!strcmp(*argv, "-df") || !strcmp(*argv, "--db-fs")) {
 			dbfs = *++argv;
 			if (!dbfs)
-				return 1;
-		} else if (!strcmp(*argv, "-ds") || !strcmp(*argv, "--db-smack")) {
-			dbsmack = *++argv;
-			if (!dbsmack)
 				return 1;
 		} else if (!strcmp(*argv, "-k") || !strcmp(*argv, "--defkey")) {
 			defkey = *++argv;
@@ -324,10 +301,10 @@ static int launch(char** argv, char **env)
 	/* invocation now */
 
 	top(1);
-	status = smaunch_init(dbsmack, dbfs, defkey);
+	status = smaunch_init(dbfs, defkey);
 	top(2);
 	if (status)
-		return error(status, "initializing", dbsmack, dbfs);
+		return error(status, "initializing", dbfs);
 
 	top(3);
 #if MEASURETIMES
@@ -337,7 +314,7 @@ static int launch(char** argv, char **env)
 #endif
 	top(4);
 	if (status)
-		return error(status, "launching", dbsmack, dbfs);
+		return error(status, "launching", dbfs);
 
 	top(5);
 
@@ -365,14 +342,8 @@ int main(int argc, char** argv, char **env)
 		if (!strcmp(*arg, "-cf") || !strcmp(*arg, "--compile-fs"))
 			return compile(++arg, smaunch_fs_load_database, smaunch_fs_save_database_compiled);
 
-		if (!strcmp(*arg, "-cs") || !strcmp(*arg, "--compile-smack"))
-			return compile(++arg, smaunch_smack_load_database, smaunch_smack_save_database_compiled);
-
 		if (!strcmp(*arg, "-Cf") || !strcmp(*arg, "--check-fs"))
 			return compile(++arg, smaunch_fs_load_database, 0);
-
-		if (!strcmp(*arg, "-Cs") || !strcmp(*arg, "--check-smack"))
-			return compile(++arg, smaunch_smack_load_database, 0);
 	}
 
 	return launch(arg, env);

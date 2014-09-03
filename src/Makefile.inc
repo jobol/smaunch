@@ -1,9 +1,5 @@
 
 LIBSRC = \
-	smack-utils-label.c \
-	smack-utils-coda.c \
-	smack-utils-fs.c \
-	smaunch-smack.c \
 	smaunch-fs.c \
 	smaunch.c \
 	parse.c \
@@ -48,13 +44,8 @@ libsmaunch$X.a: $(LIBOBJ)
 # from "gcc -MM *.c | sed 's:\.o:-$X.o:'"
 
 buffer-$X.o: buffer.c buffer.h
-main-smaunch-$X.o: main-smaunch.c smaunch-smack.h smaunch-fs.h smaunch.h
+main-smaunch-$X.o: main-smaunch.c smaunch-fs.h smaunch.h
 parse-$X.o: parse.c parse.h
-smack-utils-coda-$X.o: smack-utils-coda.c smack-utils-coda.h
-smack-utils-fs-$X.o: smack-utils-fs.c smack-utils-fs.h
-smack-utils-label-$X.o: smack-utils-label.c smack-utils-label.h
-smaunch-$X.o: smaunch.c smack-utils-fs.h smaunch-smack.h smaunch-fs.h
+smaunch-$X.o: smaunch.c smaunch-fs.h
 smaunch-fs-$X.o: smaunch-fs.c smaunch-fs.h parse.h buffer.h
-smaunch-smack-$X.o: smaunch-smack.c smaunch-smack.h smack-utils-label.h \
- smack-utils-coda.h smack-utils-fs.h buffer.h parse.h
 

@@ -6,13 +6,7 @@
 #include <assert.h>
 #include <fcntl.h>
 
-#include "smack-utils-fs.h"
-#include "smaunch-smack.h"
 #include "smaunch-fs.h"
-
-#if !defined(SIMULATION)
-#define SIMULATION 0
-#endif
 
 /* declaration of external environ variable */
 extern char **environ;
@@ -24,29 +18,16 @@ static const char *default_fs_key = 0;
 static int has_prepared = 0;
 
 /* see comment in smaunch.h */
-int smaunch_init(const char *smackdb, const char *fsdb, const char *defskey)
+int smaunch_init(const char *fsdb, const char *defskey)
 {
 	int result;
 
-	assert(smackdb);
 	assert(fsdb);
 	assert(defskey);
 
 	/* reset */
 	default_fs_key = 0;
 	has_prepared = 0;
-
-#if !SIMULATION
-	/* check smack mount point */
-	if (!smack_fs_mount_point()) {
-		return -EACCES;
-	}
-#endif
-
-	/* load smack db */
-	result = smaunch_smack_load_database(smackdb);
-	if (result < 0)
-		return result;
 
 	/* load fs db */
 	result = smaunch_fs_load_database(fsdb);
@@ -71,13 +52,12 @@ int smaunch_is_ready()
 /* see comment in smaunch.h */
 int smaunch_prepare(char **keys)
 {
-	int result, setdef, rsm, rfs;
+	int result, setdef, rfs;
 
 	assert(smaunch_is_ready());
 
 	/* restart contexts */
 	has_prepared = 0;
-	smaunch_smack_context_start();
 	smaunch_fs_context_start();
 
 	/* apply the keys */
@@ -85,15 +65,12 @@ int smaunch_prepare(char **keys)
 	while (*keys) {
 
 		/* prepare key for both contexts */
-		rsm = smaunch_smack_context_add(*keys);
 		rfs = smaunch_fs_context_add(*keys);
 
 		/* treat errors */
-		if (rsm && rsm != -ENOENT)
-			return rsm;
-		else if (!rfs)
+		if (!rfs)
 			setdef = 0;
-		else if (rfs != -ENOENT || rsm)
+		else if (rfs != -ENOENT)
 			return rfs;
 
 		/* next key */
@@ -120,69 +97,15 @@ int smaunch_has_prepared()
 /* see comment in smaunch.h */
 int smaunch_apply()
 {
-#if SIMULATION
 	int result;
 
 	assert(smaunch_is_ready());
 	assert(smaunch_has_prepared());
 
-	/* apply smack and fs rules */
-	result = smaunch_smack_context_apply();
-	if (!result) {
-		result = smaunch_fs_context_apply();
-	}
+	/* apply fs rules */
+	result = smaunch_fs_context_apply();
 
 	return result;
-#else
-	int result, length, file;
-	char slabel[256];
-
-	assert(smaunch_is_ready());
-	assert(smaunch_has_prepared());
-
-	/* Open once the smack context control */
-	file = open("/proc/self/attr/current", O_RDWR);
-	if (file < 0)
-		return -errno;
-
-	/* Save the smack context */
-	length = (int)pread(file, slabel, sizeof slabel - 1, 0);
-	if (length < 0) {
-		result = -errno;
-		close(file);
-		return result;
-	}
-	if (length == 0) {
-		strncpy(slabel, "User", 5);
-		length = 4;
-	} else {
-		slabel[length] = 0;
-	}
-
-	/* Set context to floor to be able to mount */
-	result = pwrite(file, "_", 1, 0);
-	if (result < 0) {
-		result = -errno;
-		close(file);
-		return result;
-	}
-
-	/* apply smack and fs rules */
-	smaunch_smack_set_subject(slabel);
-	result = smaunch_smack_context_apply();
-	if (!result) {
-		result = smaunch_fs_context_apply();
-	}
-
-	/* Restore the saved smack context */
-	length = pwrite(file, slabel, length, 0);
-	if (length < 0 && !result)
-		result = -errno;
-
-	close(file);
-
-	return result;
-#endif
 }
 
 /* see comment in smaunch.h */

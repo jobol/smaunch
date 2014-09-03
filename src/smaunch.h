@@ -1,17 +1,16 @@
 /* 2014, Copyright Intel & Jose Bollo <jose.bollo@open.eurogiciel.org>, license MIT */
 
 /*
- * Initializes Smaunch to use the databases of path 'smackdb'
- * (for the smack rules)  and 'fsdb' (for the filesystem rules)
+ * Initializes Smaunch to use the databases of path 
+ * 'fsdb' (for the filesystem rules)
  * and the default fs-key 'defskey'.
  *
- * Requires: smackdb != NULL
- *           && fsdb != NULL
+ * Requires: fsdb != NULL
  *           && defskey != NULL
  *
  * Returns 0 on success or a negative error code on failure
  */
-int smaunch_init(const char *smackdb, const char *fsdb, const char *defskey);
+int smaunch_init(const char *fsdb, const char *defskey);
 
 /*
  * Tests if Smaunch is initialized and ready.
